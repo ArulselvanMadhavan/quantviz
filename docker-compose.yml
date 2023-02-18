@@ -1,0 +1,47 @@
+version: "3.8"
+services:
+  quantviz:
+    build:
+      context: .
+      dockerfile: .build/Dockerfile
+      network: host
+      args:
+        USER_NAME: ${USER_NAME}
+        UID: ${CURRENT_UID}
+        GID: ${CURRENT_GID}
+        OCAML_COMPILER: ${OCAML_COMPILER}
+    image: localhost:5000/quantviz
+    container_name: quantviz-${USER}
+    stdin_open: true
+    tty: true
+    restart: always
+    volumes:
+      - type: bind
+        source: ${MODELS_DIR}
+        target: /home/${USER_NAME}/quantviz
+      - /home/${USER_NAME}/quantviz/_build/
+      - type: bind
+        source: /etc/passwd
+        target: /etc/passwd
+        read_only: true
+      - type: bind
+        source: /etc/group
+        target: /etc/group
+        read_only: true
+      - type: bind
+        source: /etc/shadow
+        target: /etc/shadow
+        read_only: true
+      - type: bind
+        source: /nfs/nomster/data/arul/data/artifacts/opt125m/fp32/layers/
+        target: /nfs/nomster/data/arul/data/artifacts/opt125m/fp32/layers/
+        read_only: false
+    user: ${CURRENT_UID}:${CURRENT_GID}
+    ports:
+      - "127.0.0.1:${PORT}:8080"
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - capabilities: [gpu]
+    shm_size: 2gb

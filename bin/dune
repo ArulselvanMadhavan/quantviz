@@ -1,0 +1,4 @@
+(executable
+ (public_name quantviz)
+ (name main)
+ (libraries quantviz))
