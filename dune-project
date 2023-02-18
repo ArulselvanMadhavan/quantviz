@@ -19,7 +19,15 @@
  (name quantviz)
  (synopsis "A short synopsis")
  (description "A longer description")
- (depends (ocaml >= 4.14.1) dune)
+ (depends
+  (ocaml (>= 4.14.1))
+  dune
+  containers
+  ocamlformat
+  ocaml-torch
+  npy
+  fpath
+  pyml)
  (tags
   (topics "to describe" your project)))
 

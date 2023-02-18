@@ -1,4 +1,4 @@
 (executable
  (public_name quantviz)
  (name main)
- (libraries quantviz))
+ (libraries quantviz containers npy base stdio fpath pyml))

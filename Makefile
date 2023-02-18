@@ -28,7 +28,7 @@ clean:
 quantviz:
 	sudo ${DC_RUN_VARS} docker compose -f docker-compose.yml run --service-ports quantviz bash
 
-.PHONY: diffusers-ocaml-rebuild
+.PHONY: quantviz-rebuild
 quantviz-rebuild:
 	sudo ${DC_RUN_VARS} docker compose -f docker-compose.yml build
 
