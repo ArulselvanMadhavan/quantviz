@@ -1,4 +1,17 @@
-(executable
- (public_name quantviz)
- (name main)
- (libraries quantviz containers npy base stdio fpath pyml))
+(executables
+ (modules pt_to_npz)
+ (names pt_to_npz)
+ (libraries quantviz containers npy base stdio pyml))
+
+(executables
+ (modules npz_to_ot)
+ (names npz_to_ot)
+ (libraries quantviz torch npy))
+
+(executables
+ (modules main)
+ (public_names quantviz)
+ (names main)
+ (libraries torch quantviz)
+ (preprocess
+  (pps ppx_sexp_conv ppx_make ppx_let)))

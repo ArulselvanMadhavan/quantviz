@@ -27,7 +27,8 @@
   ocaml-torch
   npy
   fpath
-  pyml)
+  pyml
+  )
  (tags
   (topics "to describe" your project)))
 
