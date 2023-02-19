@@ -18,7 +18,7 @@ let find_max t =
   Tensor.to_float0_exn x_max
 ;;
 
-let columns = [ "layer"; "bin"; "count"; "type_" ]
+let columns = [ "layer"; "bin_start"; "bin_end"; "count"; "type_" ]
 
 let write_row oc row =
   Stdio.Out_channel.output_string oc row;
@@ -53,10 +53,11 @@ let write_csv layer_name (data : Layercontents.t) =
         let ttype = if String.(lname = "layer_variables") then tname else lname in
         let bins = Tensor.to_float1_exn h_calib.calib_bin_edges in
         let counts = Tensor.to_float1_exn counts in
-        Array.iteri bins ~f:(fun idx bin ->
-          let count = Float.to_string counts.(idx) in
-          let bin = Float.to_string bin in
-          let row = [ layer_name; bin; count; ttype ] in
+        Array.iteri counts ~f:(fun idx count ->
+          let bin_start = Float.to_string bins.(idx) in
+          let bin_end = Float.to_string bins.(idx + 1) in
+          let count = Float.to_string count in
+          let row = [ layer_name; bin_start; bin_end; count; ttype ] in
           let row = String.concat ~sep:"," row in
           write_row oc row)));
     Bos_setup.R.ok ()

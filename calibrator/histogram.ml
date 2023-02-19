@@ -13,7 +13,7 @@ let make_t ~num_bins ~x_max =
       Tensor.linspace
         ~start:(Scalar.f 0.)
         ~end_:x_max
-        ~steps:num_bins
+        ~steps:(num_bins + 1)
         ~options:(T Torch_core.Kind.f32, Device.Cpu)
   }
 ;;
