@@ -12,4 +12,4 @@
  (modules main)
  (public_names quantviz)
  (names main)
- (libraries torch quantviz calibrator))
+ (libraries torch quantviz calibrator bos bos.setup))

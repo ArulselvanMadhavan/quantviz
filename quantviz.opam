@@ -20,6 +20,7 @@ depends: [
   "fpath"
   "pyml"
   "csv"
+  "bos"
   "odoc" {with-doc}
 ]
 build: [

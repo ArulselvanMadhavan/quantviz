@@ -28,7 +28,8 @@
   npy
   fpath
   pyml
-  csv)
+  csv
+  bos)
  (tags
   (topics "to describe" your project)))
 
