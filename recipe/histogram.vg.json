@@ -1,26 +1,70 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
-  "data": {
-    "url": "data/lm_head.csv",
-    "format": {
-      "type": "csv",
-      "parse": {"bin_start": "number", "bin_end": "number", "count": "number"}
+  "layer": [
+    {
+      "data": {
+        "url": "data/hist.csv",
+        "format": {
+          "type": "csv",
+          "parse": {
+            "bin_start": "number",
+            "bin_end": "number",
+            "count": "number",
+            "amax_perc": "number"
+          }
+        }
+      },
+      "width": 1200,
+      "transform": [
+        {"filter": "datum.type_=='weight'"},
+        {"calculate": "log(datum.count)/log(10)", "as": "log10_counts"}
+      ],
+      "layer": [
+        {
+          "mark": "bar",
+          "encoding": {
+            "x": {"field": "bin_start", "bin": {"binned": true}},
+            "x2": {"field": "bin_end"},
+            "y": {"field": "log10_counts", "type": "quantitative"},
+            "color": {"value": "#ff9900"},
+            "tooltip": [
+              {"field": "count", "type": "quantitative", "title": "count"},
+              {
+                "field": "bin_start",
+                "type": "quantitative",
+                "title": "bin_start"
+              },
+              {"field": "bin_end", "type": "quantitative", "title": "bin_end"}
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "data": {
+        "url": "data/calib.csv",
+        "format": {"type": "csv", "parse": {"amax_value": "number"}}
+      },
+      "transform": [{"filter": "datum.type_=='weight'"}],
+      "encoding": {
+        "x": {"field": "amax_value", "type": "quantitative"},
+        "color": {"field": "amax_type", "type": "nominal"},
+        "tooltip": [{"field": "amax_value", "type": "quantitative"}]
+      },
+      "layer": [
+        {"mark": {"type": "rule", "strokeDash": [8, 4], "strokeWidth": 2}},
+        {
+          "mark": {
+            "type": "text",
+            "text": {"expr": "datum.amax_type"},
+            "y": "height",
+            "angle": 0,
+            "baseline": "line-top",
+            "dx": 45,
+            "dy": {"expr": "height * -1"}
+          }
+        }
+      ]
     }
-  },
-  "width": 1200,
-  "transform": [
-    {"filter": "datum.type_=='weight'"},
-    {"calculate": "log(datum.count)/log(10)", "as": "log10_counts"}
-  ],
-  "mark": "bar",
-  "encoding": {
-    "x": {"field": "bin_start", "bin": {"binned": true}},
-    "x2": {"field": "bin_end"},
-    "y": {"field": "log10_counts", "type": "quantitative"},
-    "tooltip": [
-      {"field": "count", "type": "quantitative", "title": "count"},
-      {"field": "bin_start", "type": "quantitative", "title": "bin_start"},
-      {"field": "bin_end", "type": "quantitative", "title": "bin_end"}
-    ]
-  }
+  ]
 }
