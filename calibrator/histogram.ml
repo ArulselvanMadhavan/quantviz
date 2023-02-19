@@ -19,3 +19,19 @@ let make_t ~num_bins ~x_max =
 ;;
 
 let collect t x = Tensor.histc x ~bins:t.num_bins
+
+let amax_percentile t ~hist ~numel =
+  let hist = Tensor.div_scalar hist (Scalar.i numel) in
+  let cdf = Tensor.cumsum hist ~dim:0 ~dtype:(Tensor.kind hist) in
+  let idx =
+    Tensor.searchsorted
+      ~sorted_sequence:cdf
+      (Tensor.of_float0 0.99)
+      ~out_int32:false
+      ~side:"left"
+      ~right:false
+      ~sorter:None
+  in
+  let idx = Tensor.to_int0_exn idx in
+  Tensor.( .%.[] ) t.calib_bin_edges idx
+;;
