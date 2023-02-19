@@ -19,6 +19,7 @@ depends: [
   "npy"
   "fpath"
   "pyml"
+  "csv"
   "odoc" {with-doc}
 ]
 build: [
