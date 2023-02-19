@@ -28,5 +28,3 @@ let update info_type contents t =
   | "layer_variables" -> { t with layer_variables = add_contents t.layer_variables }
   | _ -> raise (UnknownLayerInfo info_type)
 ;;
-
-(* let lengths t = List.length t.inputs, List.length t.layer_variables, List.length t.outputs *)

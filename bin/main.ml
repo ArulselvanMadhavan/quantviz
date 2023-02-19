@@ -81,8 +81,6 @@ let write_csv layer_name (data : Layercontents.t) =
   ()
 ;;
 
-(* Stdio.Out_channel.with_file ~append:false ~fail_if_exists:false ~perm:777 fname ~f *)
-
 let () =
   let dir_name = "/nfs/nomster/data/arul/data/artifacts/opt125m/fp32/layers/" in
   let files = Quantviz.Utils.dir_contents dir_name ~ext:"ot" in
