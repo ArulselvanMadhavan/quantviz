@@ -1,0 +1,26 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "data": {
+    "url": "data/lm_head.csv",
+    "format": {
+      "type": "csv",
+      "parse": {"bin_start": "number", "bin_end": "number", "count": "number"}
+    }
+  },
+  "width": 1200,
+  "transform": [
+    {"filter": "datum.type_=='weight'"},
+    {"calculate": "log(datum.count)/log(10)", "as": "log10_counts"}
+  ],
+  "mark": "bar",
+  "encoding": {
+    "x": {"field": "bin_start", "bin": {"binned": true}},
+    "x2": {"field": "bin_end"},
+    "y": {"field": "log10_counts", "type": "quantitative"},
+    "tooltip": [
+      {"field": "count", "type": "quantitative", "title": "count"},
+      {"field": "bin_start", "type": "quantitative", "title": "bin_start"},
+      {"field": "bin_end", "type": "quantitative", "title": "bin_end"}
+    ]
+  }
+}
