@@ -1,0 +1,265 @@
+{
+  "$schema": "https://vega.github.io/schema/vega/v5.json",
+  "background": "white",
+  "padding": 5,
+  "data": [
+    {
+      "name": "source_0",
+      "url": "data/hist.csv",
+      "format": {
+        "type": "csv",
+        "parse": {
+          "bin_start": "number",
+          "bin_end": "number",
+          "count": "number"
+        },
+        "delimiter": ","
+      },
+      "transform": [
+        {"type": "filter", "expr": "datum.type_=='weight'"},
+        {
+          "type": "formula",
+          "expr": "log(datum.count)/log(10)",
+          "as": "log10_counts"
+        },
+        {
+          "type": "stack",
+          "groupby": ["bin_start", "bin_start", "layer_name"],
+          "field": "log10_counts",
+          "sort": {"field": [], "order": []},
+          "as": ["log10_counts_start", "log10_counts_end"],
+          "offset": "zero"
+        },
+        {
+          "type": "filter",
+          "expr": "isValid(datum[\"bin_start\"]) && isFinite(+datum[\"bin_start\"]) && isValid(datum[\"log10_counts\"]) && isFinite(+datum[\"log10_counts\"])"
+        }
+      ]
+    },
+    {
+      "name": "row_domain",
+      "source": "source_0",
+      "transform": [{"type": "aggregate", "groupby": ["layer_name"]}]
+    },
+    {
+      "name": "calib",
+      "url": "data/calib.csv",
+      "format": {
+        "type": "csv",
+        "parse": {"amax_value": "number"},
+        "delimiter": ","
+      }
+    }
+  ],
+  "signals": [
+    {"name": "child_width", "value": 1200},
+    {"name": "child_height", "value": 200}
+  ],
+  "layout": {
+    "padding": 20,
+    "offset": {"rowTitle": 10},
+    "columns": 1,
+    "bounds": "full",
+    "align": "all"
+  },
+  "marks": [
+    {
+      "name": "row-title",
+      "type": "group",
+      "role": "row-title",
+      "title": {
+        "text": "layer_name",
+        "orient": "left",
+        "style": "guide-title",
+        "offset": 10
+      }
+    },
+    {
+      "name": "row_header",
+      "type": "group",
+      "role": "row-header",
+      "from": {"data": "row_domain"},
+      "sort": {"field": "datum[\"layer_name\"]", "order": "ascending"},
+      "title": {
+        "text": {
+          "signal": "isValid(parent[\"layer_name\"]) ? parent[\"layer_name\"] : \"\"+parent[\"layer_name\"]"
+        },
+        "orient": "left",
+        "style": "guide-label",
+        "frame": "group",
+        "offset": 10
+      },
+      "encode": {"update": {"height": {"signal": "child_height"}}},
+      "axes": [
+        {
+          "scale": "y",
+          "orient": "left",
+          "grid": false,
+          "title": "log10_counts",
+          "labelOverlap": true,
+          "tickCount": {"signal": "ceil(child_height/40)"},
+          "zindex": 0
+        }
+      ]
+    },
+    {
+      "name": "column_footer",
+      "type": "group",
+      "role": "column-footer",
+      "encode": {"update": {"width": {"signal": "child_width"}}},
+      "axes": [
+        {
+          "scale": "x",
+          "orient": "bottom",
+          "grid": false,
+          "title": "bin_start, bin_end",
+          "labelFlush": true,
+          "labelOverlap": true,
+          "tickCount": {"signal": "ceil(child_width/40)"},
+          "zindex": 0
+        }
+      ]
+    },
+    {
+      "name": "cell",
+      "type": "group",
+      "style": "cell",
+      "from": {
+        "facet": {
+          "name": "facet",
+          "data": "source_0",
+          "groupby": ["layer_name"]
+        }
+      },
+      "data": [
+        {
+          "source": "calib",
+          "name": "calib_for_layer",
+          "transform": [
+            {"type": "filter", "expr": "datum.layer_name == parent.layer_name"}
+          ]
+        }
+      ],
+      "sort": {"field": ["datum[\"layer_name\"]"], "order": ["ascending"]},
+      "encode": {
+        "update": {
+          "width": {"signal": "child_width"},
+          "height": {"signal": "child_height"}
+        }
+      },
+      "marks": [
+        {
+          "name": "child_marks",
+          "type": "rect",
+          "style": ["bar"],
+          "from": {"data": "facet"},
+          "encode": {
+            "update": {
+              "fill": {"value": "#ff9900"},
+              "tooltip": {
+                "signal": "{\"count\": format(datum[\"count\"], \"\"), \"bin_start\": format(datum[\"bin_start\"], \"\"), \"bin_end\": format(datum[\"bin_end\"], \"\")}"
+              },
+              "ariaRoleDescription": {"value": "bar"},
+              "description": {
+                "signal": "\"bin_start: \" + (!isValid(datum[\"bin_start\"]) || !isFinite(+datum[\"bin_start\"]) ? \"null\" : format(datum[\"bin_start\"], \"\") + \" – \" + format(datum[\"bin_end\"], \"\")) + \"; log10_counts: \" + (format(datum[\"log10_counts\"], \"\")) + \"; count: \" + (format(datum[\"count\"], \"\")) + \"; bin_end: \" + (format(datum[\"bin_end\"], \"\"))"
+              },
+              "x2": {"scale": "x", "field": "bin_start", "offset": 1},
+              "x": {"scale": "x", "field": "bin_end"},
+              "y": {"scale": "y", "field": "log10_counts_end"},
+              "y2": {"scale": "y", "field": "log10_counts_start"}
+            }
+          }
+        },
+        {
+          "name": "layer_1_layer_0_marks",
+          "type": "rule",
+          "style": ["rule"],
+          "from": {"data": "calib_for_layer"},
+          "encode": {
+            "update": {
+              "strokeWidth": {"value": 2},
+              "strokeDash": {"value": [8, 4]},
+              "stroke": {"scale": "color", "field": "amax_type"},
+              "tooltip": {
+                "signal": "{\"amax_value\": format(datum[\"amax_value\"], \"\")}"
+              },
+              "description": {
+                "signal": "\"amax_value: \" + (format(datum[\"amax_value\"], \"\")) + \"; amax_type: \" + (isValid(datum[\"amax_type\"]) ? datum[\"amax_type\"] : \"\"+datum[\"amax_type\"])"
+              },
+              "x": {"scale": "x", "field": "amax_value"},
+              "y": {"value": 0},
+              "y2": {"field": {"group": "height"}}
+            }
+          }
+        },
+        {
+          "name": "layer_1_layer_1_marks",
+          "type": "text",
+          "style": ["text"],
+          "from": {"data": "calib_for_layer"},
+          "encode": {
+            "update": {
+              "baseline": {"value": "top"},
+              "text": {"signal": "datum.amax_type"},
+              "dx": {"value": -35},
+              "dy": {"signal": "height * -1"},
+              "angle": {"value": 0},
+              "fill": {"scale": "color", "field": "amax_type"},
+              "tooltip": {
+                "signal": "{\"amax_value\": format(datum[\"amax_value\"], \"\")}"
+              },
+              "description": {
+                "signal": "\"amax_value: \" + (format(datum[\"amax_value\"], \"\")) + \"; amax_type: \" + (isValid(datum[\"amax_type\"]) ? datum[\"amax_type\"] : \"\"+datum[\"amax_type\"])"
+              },
+              "x": {"scale": "x", "field": "amax_value"},
+
+              "align": {"value": "center"}
+            }
+          }
+        }
+      ],
+      "axes": [
+        {
+          "scale": "y",
+          "orient": "left",
+          "gridScale": "x",
+          "grid": true,
+          "tickCount": {"signal": "ceil(child_height/40)"},
+          "domain": false,
+          "labels": false,
+          "aria": false,
+          "maxExtent": 0,
+          "minExtent": 0,
+          "ticks": false,
+          "zindex": 0
+        }
+      ]
+    }
+  ],
+  "scales": [
+    {
+      "name": "x",
+      "type": "linear",
+      "domain": {"data": "source_0", "fields": ["bin_start", "bin_end"]},
+      "range": [0, {"signal": "child_width"}],
+      "zero": false
+    },
+    {
+      "name": "y",
+      "type": "linear",
+      "domain": {
+        "data": "source_0",
+        "fields": ["log10_counts_start", "log10_counts_end"]
+      },
+      "range": [{"signal": "child_height"}, 0],
+      "nice": true,
+      "zero": true
+    },
+    {
+      "name": "color",
+      "type": "ordinal",
+      "domain": {"data": "calib", "field": "amax_type", "sort": true},
+      "range": "category"
+    }
+  ]
+}

@@ -50,7 +50,8 @@ let write_csv layer_name (data : Layercontents.t) =
     let calib_stats =
       List.map names_and_tensors ~f:(fun (ttype, t) ->
         let t = Tensor.abs_ t in
-        let x_max = Scalar.f (find_max t) in
+        let tensor_max = find_max t in
+        let x_max = Scalar.f tensor_max in
         let h_calib = H.make_t ~num_bins:2048 ~x_max in
         let counts = H.collect h_calib t in
         let percentile = 99 in
@@ -74,6 +75,7 @@ let write_csv layer_name (data : Layercontents.t) =
           , ttype
           , Int.to_string percentile ^ "_percentile"
           , Float.to_string amax_perc )
+        ; layer_name, ttype, "tensor_max", Float.to_string tensor_max
         ])
     in
     Bos_setup.R.ok (List.concat calib_stats)

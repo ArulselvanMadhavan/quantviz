@@ -9,8 +9,7 @@
           "parse": {
             "bin_start": "number",
             "bin_end": "number",
-            "count": "number",
-            "amax_perc": "number"
+            "count": "number"
           }
         }
       },
@@ -48,7 +47,11 @@
       "transform": [{"filter": "datum.type_=='weight'"}],
       "encoding": {
         "x": {"field": "amax_value", "type": "quantitative"},
-        "color": {"field": "amax_type", "type": "nominal"},
+        "color": {
+          "field": "amax_type",
+          "type": "nominal",
+          "legend": {"orient": "top"}
+        },
         "tooltip": [{"field": "amax_value", "type": "quantitative"}]
       },
       "layer": [
@@ -60,7 +63,7 @@
             "y": "height",
             "angle": 0,
             "baseline": "line-top",
-            "dx": 45,
+            "dx": -35,
             "dy": {"expr": "height * -1"}
           }
         }
