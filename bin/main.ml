@@ -50,11 +50,13 @@ let write_histogram oc layer_name (ttype, t) =
   let calib_row name maxval mse m e =
     layer_name, ttype, name, Float.to_string maxval, Float.to_string mse, fp_format m e
   in
+  (* Histogram *)
   let t = Tensor.to_ t ~device:(Device.Cuda 0) in
   let t = Tensor.abs_ t in
   let x_max = find_max t in
   let h_calib = H.make_t ~num_bins ~x_max in
   let counts = H.collect h_calib t in
+  (* xmax_percentile *)
   let amax_perc =
     H.amax_percentile
       h_calib
@@ -62,6 +64,7 @@ let write_histogram oc layer_name (ttype, t) =
       ~numel:(numel t)
       ~percentile:(Float.of_int percentile)
   in
+  (* Mse *)
   let mse_results =
     Array.map mantissa_bits ~f:(fun mb -> Mse.amax_mse t ~x_max ~num_mantissa_bits:mb)
     |> Array.to_list
@@ -120,6 +123,23 @@ let filter_float_tensors (_, t) =
   | _ -> false
 ;;
 
+let info_type = "inputs"
+
+let filter_by_info_type filename =
+  let layer_info = Quantviz.Utils.layer_name_and_mem filename in
+  let layer_name = List.hd_exn layer_info in
+  let it = List.last_exn layer_info in
+  if String.equal info_type it then Some layer_name else None
+;;
+
+let info_type_to_tensors (lc : Layercontents.t) =
+  match info_type with
+  | "inputs" -> [ info_type, Hashtbl.find_exn lc.inputs "0" ]
+  | "output" -> [ info_type, Hashtbl.find_exn lc.outputs "0" ]
+  | "layer_variables" -> [ "weight", Hashtbl.find_exn lc.layer_variables "weight" ]
+  | _ -> []
+;;
+
 let () =
   let dir_name = "/nfs/nomster/data/arul/data/artifacts/opt125m/fp32/layers/" in
   let files = Quantviz.Utils.dir_contents dir_name ~ext:"ot" in
@@ -127,21 +147,15 @@ let () =
   List.iter ~f:(load_tensors ht) files;
   (* Layers with weight *)
   let ht = Hashtbl.filter ht ~f:(fun v -> Hashtbl.mem v.layer_variables "weight") in
-  (* FIXME *)
-  let ttype = "inputs" in
   let hist_writer hist_oc calib_oc =
-    List.iter files ~f:(fun filename ->
-      let layer_info = Quantviz.Utils.layer_name_and_mem filename in
-      let layer_name = List.hd_exn layer_info in
+    let process_tensors layer_name =
       Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
-        let names_and_tensors =
-          [ (* "outputs", Hashtbl.find_exn data.outputs "0"; *)
-            "inputs", Hashtbl.find_exn data.inputs "0"
-          ]
-          (* @ Hashtbl.to_alist data.layer_variables *)
-        in
+        let names_and_tensors = info_type_to_tensors data in
         let names_and_tensors = List.filter names_and_tensors ~f:filter_float_tensors in
-        write_csv hist_oc calib_oc layer_name names_and_tensors))
+        write_csv hist_oc calib_oc layer_name names_and_tensors)
+    in
+    (* To maintain order iter through files in the order *)
+    List.(filter_map files ~f:filter_by_info_type |> iter ~f:process_tensors)
   in
   let data_dir = "data" in
   let fname = Option.value_exn (Result.ok (Fpath.of_string data_dir)) in
@@ -149,12 +163,12 @@ let () =
   let csv_file name = Fpath.add_seg fname name |> Fpath.add_ext "csv" in
   let _ =
     Bos.OS.File.with_oc
-      (csv_file (ttype ^ "_hist"))
+      (csv_file (info_type ^ "_hist"))
       (fun hist_oc _ ->
         write_header hist_oc hist_columns;
         let _ =
           Bos.OS.File.with_oc
-            (csv_file (ttype ^ "_calib"))
+            (csv_file (info_type ^ "_calib"))
             (fun calib_oc _ ->
               write_header calib_oc calib_columns;
               Bos_setup.R.ok (hist_writer hist_oc calib_oc))
