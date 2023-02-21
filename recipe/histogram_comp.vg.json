@@ -5,7 +5,7 @@
   "data": [
     {
       "name": "source_0",
-      "url": "data/inputs_hist.csv",
+      "url": "data/layer_variables_hist.csv",
       "format": {
         "type": "csv",
         "parse": {
@@ -42,7 +42,7 @@
     },
     {
       "name": "calib",
-      "url": "data/inputs_calib.csv",
+      "url": "data/layer_variables_calib.csv",
       "format": {
         "type": "csv",
         "parse": {"amax_value": "number"},
