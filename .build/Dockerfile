@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y sudo git inotify-tools build-essential 
 
 RUN add-apt-repository -y ppa:deadsnakes/ppa
 RUN apt-get install -y python3 python3-pip
+RUN pip3 install torch numpy
 
 RUN add-apt-repository ppa:avsm/ppa
 RUN apt update
@@ -40,5 +41,5 @@ RUN rm -rf libtorch-cxx11-abi-shared-with-deps-1.13.0+cu117.zip
 
 RUN git clone https://github.com/LaurentMazare/ocaml-torch.git
 RUN cd ocaml-torch && opam install -y .
-RUN opam install -y merlin dune utop
+RUN opam install -y merlin dune utop pyml bos ppx_make ppx_let containers
 WORKDIR ${HOME}/quantviz
