@@ -91,8 +91,6 @@ let write_histogram oc layer_name (ttype, t) =
   @ mse_rows
 ;;
 
-let extract_stats = Fn.compose Bos_setup.R.get_ok Bos_setup.R.get_ok
-
 let write_calib calib_oc (_, calib_stats) =
   List.iter calib_stats ~f:(fun (ln, ttype, amax_type, amax_value) ->
     let row = String.concat ~sep:"," [ ln; ttype; amax_type; amax_value ] in
