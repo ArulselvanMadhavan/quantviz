@@ -39,7 +39,7 @@ let amax_mse t ~x_max ~num_mantissa_bits =
   let lsp =
     linspace
       ~start:(mul_factor 0.1)
-      ~end_:(mul_factor 1.2)
+      ~end_:(mul_factor 1.0)
       ~steps:maxval_span_length
       ~options:(kind t, device t)
   in
