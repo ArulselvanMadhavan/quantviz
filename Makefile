@@ -1,7 +1,7 @@
 CURRENT_UID := $(shell id -u)
 CURRENT_GID := $(shell id -g)
 MODELS_DIR ?= $(shell pwd)
-PORT ?= 8080
+PORT ?= 8081
 OCAML_COMPILER := 4.14.1
 
 DC_RUN_VARS := USER_NAME=${USER} \
