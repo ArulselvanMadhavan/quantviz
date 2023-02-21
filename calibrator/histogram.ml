@@ -26,7 +26,7 @@ let amax_percentile t ~hist ~numel ~percentile =
   let idx =
     Tensor.searchsorted
       ~sorted_sequence:cdf
-      (Tensor.of_float0 (percentile /. 100.))
+      (Tensor.of_float0 (percentile /. 100.) ~device:(Tensor.device hist))
       ~out_int32:false
       ~side:"left"
       ~right:false
