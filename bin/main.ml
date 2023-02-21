@@ -98,7 +98,8 @@ let write_histogram oc layer_name (ttype, t) =
     let mse_pos = Array.zip_exn mse_pos mse_val |> Array.to_list in
     i := !i + 1;
     mses
-    @ List.map mse_pos ~f:(fun (maxval, mse) -> calib_row "min_mse" maxval mse mb exp)
+    @ List.map mse_pos ~f:(fun (maxval, mse) ->
+        calib_row (fp_format mb exp ^ "_min_mse") maxval mse mb exp)
   in
   List.(mse_results >>= mse_result_to_row)
 ;;
@@ -146,7 +147,8 @@ let () =
   let files = Quantviz.Utils.dir_contents dir_name ~ext:"ot" in
   let files =
     List.filter files ~f:(fun fname ->
-      not (String.is_substring fname ~substring:"layer_norm"))
+      (not (String.is_substring fname ~substring:"layer_norm"))
+      && not (String.is_substring fname ~substring:"activation_fn"))
   in
   let ht = Hashtbl.create ~size:(List.length files) (module String) in
   List.iter ~f:(load_tensors ht) files;
