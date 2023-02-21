@@ -68,29 +68,30 @@ let write_histogram csv_file layer_name (ttype, t) =
   Bos.OS.File.with_oc (csv_file (ttype ^ "_hist")) f ()
 ;;
 
+let extract_stats = Fn.compose Bos_setup.R.get_ok Bos_setup.R.get_ok
+
+let write_calib csv_file ((ttype, _), calib_stats) =
+  let calib_stats = extract_stats calib_stats in
+  let f oc cs =
+    write_header oc calib_columns;
+    List.iter cs ~f:(fun (ln, ttype, amax_type, amax_value) ->
+      let row = String.concat ~sep:"," [ ln; ttype; amax_type; amax_value ] in
+      write_row oc row);
+    Bos_setup.R.ok ()
+  in
+  Bos.OS.File.with_oc (csv_file (ttype ^ "_calib")) f calib_stats
+;;
+
 let write_csv layer_name names_and_tensors =
   let data_dir = "data" in
   let fname = Option.value_exn (Result.ok (Fpath.of_string data_dir)) in
   let _ = Bos.OS.Dir.create fname in
   let csv_file name = Fpath.add_seg fname name |> Fpath.add_ext "csv" in
-  (* ttype: inputs, outputs, keys(layer_variables) *)
+  (* write histogram *)
   let calib_stats = List.map names_and_tensors ~f:(write_histogram csv_file layer_name) in
-  let extract_stats = Fn.compose Bos_setup.R.get_ok Bos_setup.R.get_ok in
+  (* write calib stats *)
   let zipped_stats = List.zip_exn names_and_tensors calib_stats in
-  let _ =
-    List.(
-      zipped_stats
-      >>| fun ((ttype, _), calib_stats) ->
-      let calib_stats = extract_stats calib_stats in
-      let f oc cs =
-        write_header oc calib_columns;
-        List.iter cs ~f:(fun (ln, ttype, amax_type, amax_value) ->
-          let row = String.concat ~sep:"," [ ln; ttype; amax_type; amax_value ] in
-          write_row oc row);
-        Bos_setup.R.ok ()
-      in
-      Bos.OS.File.with_oc (csv_file (ttype ^ "_calib")) f calib_stats)
-  in
+  let _ = List.(zipped_stats >>| write_calib csv_file) in
   ()
 ;;
 
