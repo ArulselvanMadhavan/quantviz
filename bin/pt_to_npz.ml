@@ -62,6 +62,8 @@ let () =
   let files = List.map files ~f:(fun fl -> Fpath.of_string fl) in
   let files = Quantviz.Utils.remove_file_ext files in
   List.iter files ~f:(fun (src, dst) ->
+      Stdio.printf "%s\n" src;
+      Stdio.Out_channel.flush Stdio.stdout;
     pt_to_npz (Fpath.to_string src) (Fpath.to_string dst));
   List.iter ~f:(fun (f, _) -> Stdio.printf "%s\n" (Fpath.to_string f)) files
 ;;
