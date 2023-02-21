@@ -35,6 +35,14 @@ let write_header oc columns =
   write_row oc header
 ;;
 
+let mantissa_bits = [| 5; 4 |]
+
+let fp_format m e =
+  let m = Int.to_string m in
+  let e = Int.to_string e in
+  "M" ^ m ^ "E" ^ e
+;;
+
 let write_histogram csv_file layer_name (ttype, t) =
   let module H = Histogram in
   let f oc _ =
@@ -50,9 +58,10 @@ let write_histogram csv_file layer_name (ttype, t) =
         ~numel:(numel t)
         ~percentile:(Float.of_int percentile)
     in
-    let mse_pos, mse_val = Mse.amax_mse t ~x_max ~num_mantissa_bits:4 in
-    Array.iteri mse_pos ~f:(fun i pos ->
-      Stdio.printf "maxval_pos:%f|mse:%f\n" pos mse_val.(i));
+    let mse_results =
+      Array.map mantissa_bits ~f:(fun mb -> Mse.amax_mse t ~x_max ~num_mantissa_bits:mb)
+      |> Array.to_list
+    in
     let bins = Tensor.to_float1_exn h_calib.calib_bin_edges in
     let counts = Tensor.to_float1_exn counts in
     Array.iteri counts ~f:(fun idx count ->
@@ -62,13 +71,27 @@ let write_histogram csv_file layer_name (ttype, t) =
       let row = [ layer_name; bin_start; bin_end; count; ttype ] in
       let row = String.concat ~sep:"," row in
       write_row oc row);
+    let i = ref 0 in
+    let mse_rows =
+      List.(
+        mse_results
+        >>= fun mse_res ->
+        let mb = mantissa_bits.(!i) in
+        let exp = 7 - mb in
+        let mse_pos, _mse_val = mse_res in
+        let mse_pos = Array.to_list mse_pos in
+        i := !i + 1;
+        List.map mse_pos ~f:(fun pos ->
+          layer_name, ttype, fp_format mb exp ^ "_min_mse", Float.to_string pos))
+    in
     Bos_setup.R.ok
-      [ ( layer_name
-        , ttype
-        , Int.to_string percentile ^ "_percentile"
-        , Float.to_string amax_perc )
-      ; layer_name, ttype, "tensor_max", Float.to_string x_max
-      ]
+      ([ ( layer_name
+         , ttype
+         , Int.to_string percentile ^ "_percentile"
+         , Float.to_string amax_perc )
+       ; layer_name, ttype, "tensor_max", Float.to_string x_max
+       ]
+      @ mse_rows)
   in
   Bos.OS.File.with_oc (csv_file (ttype ^ "_hist")) f ()
 ;;

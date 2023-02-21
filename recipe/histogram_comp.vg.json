@@ -5,7 +5,7 @@
   "data": [
     {
       "name": "source_0",
-      "url": "data/hist.csv",
+      "url": "data/inputs_hist.csv",
       "format": {
         "type": "csv",
         "parse": {
@@ -16,7 +16,6 @@
         "delimiter": ","
       },
       "transform": [
-        {"type": "filter", "expr": "datum.type_=='weight'"},
         {
           "type": "formula",
           "expr": "log(datum.count)/log(10)",
@@ -43,7 +42,7 @@
     },
     {
       "name": "calib",
-      "url": "data/calib.csv",
+      "url": "data/inputs_calib.csv",
       "format": {
         "type": "csv",
         "parse": {"amax_value": "number"},
@@ -52,7 +51,7 @@
     }
   ],
   "signals": [
-    {"name": "child_width", "value": 1200},
+    {"name": "child_width", "value": 800},
     {"name": "child_height", "value": 200}
   ],
   "layout": {
@@ -155,7 +154,7 @@
           "from": {"data": "facet"},
           "encode": {
             "update": {
-              "fill": {"value": "#ff9900"},
+              "fill": {"value": "#aa9900"},
               "tooltip": {
                 "signal": "{\"count\": format(datum[\"count\"], \"\"), \"bin_start\": format(datum[\"bin_start\"], \"\"), \"bin_end\": format(datum[\"bin_end\"], \"\")}"
               },
@@ -199,11 +198,11 @@
           "from": {"data": "calib_for_layer"},
           "encode": {
             "update": {
-              "baseline": {"value": "top"},
+              "baseline": {"value": "middle"},
               "text": {"signal": "datum.amax_type"},
-              "dx": {"value": -35},
-              "dy": {"signal": "height * -1"},
-              "angle": {"value": 0},
+              "dx": {"value": 0},
+              "dy": {"value": 0},
+              "angle": {"value": 45},
               "fill": {"scale": "color", "field": "amax_type"},
               "tooltip": {
                 "signal": "{\"amax_value\": format(datum[\"amax_value\"], \"\")}"
@@ -212,7 +211,6 @@
                 "signal": "\"amax_value: \" + (format(datum[\"amax_value\"], \"\")) + \"; amax_type: \" + (isValid(datum[\"amax_type\"]) ? datum[\"amax_type\"] : \"\"+datum[\"amax_type\"])"
               },
               "x": {"scale": "x", "field": "amax_value"},
-
               "align": {"value": "center"}
             }
           }
@@ -260,6 +258,16 @@
       "type": "ordinal",
       "domain": {"data": "calib", "field": "amax_type", "sort": true},
       "range": "category"
+    }
+  ],
+  "legends": [
+    {
+      "orient": "top",
+      "stroke": "color",
+      "direction": "horizontal",
+      "symbolType": "circle",
+      "title": "amax_type",
+      "fill": "color"
     }
   ]
 }
