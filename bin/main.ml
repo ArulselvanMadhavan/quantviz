@@ -144,6 +144,10 @@ let info_type_to_tensors (lc : Layercontents.t) =
 let () =
   let dir_name = "/nfs/nomster/data/arul/data/artifacts/opt125m/fp32/layers/" in
   let files = Quantviz.Utils.dir_contents dir_name ~ext:"ot" in
+  let files =
+    List.filter files ~f:(fun fname ->
+      not (String.is_substring fname ~substring:"layer_norm"))
+  in
   let ht = Hashtbl.create ~size:(List.length files) (module String) in
   List.iter ~f:(load_tensors ht) files;
   (* Layers with weight *)
