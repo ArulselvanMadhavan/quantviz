@@ -2,6 +2,10 @@ open Torch
 open Base
 open Calibrator
 
+(* constants *)
+let percentile = 99
+let num_bins = 2048
+
 let load_tensors ht filename =
   let contents = Serialize.load_all ~filename in
   let layer_info = Quantviz.Utils.layer_name_and_mem filename in
@@ -36,11 +40,9 @@ let write_histogram csv_file layer_name (ttype, t) =
   let f oc _ =
     write_header oc hist_columns;
     let t = Tensor.abs_ t in
-    let tensor_max = find_max t in
-    let x_max = Scalar.f tensor_max in
-    let h_calib = H.make_t ~num_bins:2048 ~x_max in
+    let x_max = find_max t in
+    let h_calib = H.make_t ~num_bins ~x_max in
     let counts = H.collect h_calib t in
-    let percentile = 99 in
     let amax_perc =
       H.amax_percentile
         h_calib
@@ -48,6 +50,9 @@ let write_histogram csv_file layer_name (ttype, t) =
         ~numel:(numel t)
         ~percentile:(Float.of_int percentile)
     in
+    let mse_pos, mse_val = Mse.amax_mse t ~x_max ~num_mantissa_bits:4 in
+    Array.iteri mse_pos ~f:(fun i pos ->
+      Stdio.printf "maxval_pos:%f|mse:%f\n" pos mse_val.(i));
     let bins = Tensor.to_float1_exn h_calib.calib_bin_edges in
     let counts = Tensor.to_float1_exn counts in
     Array.iteri counts ~f:(fun idx count ->
@@ -62,7 +67,7 @@ let write_histogram csv_file layer_name (ttype, t) =
         , ttype
         , Int.to_string percentile ^ "_percentile"
         , Float.to_string amax_perc )
-      ; layer_name, ttype, "tensor_max", Float.to_string tensor_max
+      ; layer_name, ttype, "tensor_max", Float.to_string x_max
       ]
   in
   Bos.OS.File.with_oc (csv_file (ttype ^ "_hist")) f ()
