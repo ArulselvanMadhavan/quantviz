@@ -45,7 +45,6 @@ let amax_mse t ~x_max ~num_mantissa_bits =
   let mses = ref mses in
   while !i < maxval_span_length do
     Stdio.printf "Mse:%d\n" !i;
-    Stdio.Out_channel.flush Stdio.stdout;
     let maxval = select linspaces ~dim:0 ~index:!i in
     let xfp = quantize_to_fp8 t maxval ~num_mantissa_bits in
     let mse = pow (t - xfp) ~exponent:(of_int0 2) in
@@ -55,7 +54,8 @@ let amax_mse t ~x_max ~num_mantissa_bits =
     (match (device !mses), (device mse) with
     | Device.Cpu, Device.Cuda _ -> Stdio.printf "mses in cpu\n";
     | Device.Cuda _, Device.Cpu ->Stdio.printf "mse in cpu\n";
-      | _ -> ());
+    | _ -> ());
+    Stdio.Out_channel.flush Stdio.stdout;    
     Caml.Gc.full_major ();
     i := Int.(!i + 1)
   done;
