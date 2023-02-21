@@ -125,7 +125,7 @@ let filter_float_tensors (_, t) =
   | _ -> false
 ;;
 
-let info_type = "layer_variables"
+let info_type = "inputs"
 
 let filter_by_info_type filename =
   let layer_info = Quantviz.Utils.layer_name_and_mem filename in
