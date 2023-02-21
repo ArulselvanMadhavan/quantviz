@@ -29,6 +29,10 @@ let () =
   let files = List.map files ~f:(fun fl -> Fpath.of_string fl) in
   let files = Quantviz.Utils.rename_ext files ~ext:"ot" in
   List.iter files ~f:(fun (src, dst) ->
-    npz_to_pytorch (Fpath.to_string src) (Fpath.to_string dst));
+    Stdio.printf "npz_to_ot:%s\n" (Fpath.to_string src);
+    try npz_to_pytorch (Fpath.to_string src) (Fpath.to_string dst) with
+    | _ ->
+      Stdio.printf "Skipping;%s\n" (Fpath.to_string src);
+      Stdio.Out_channel.flush Stdio.stdout);
   ()
 ;;
