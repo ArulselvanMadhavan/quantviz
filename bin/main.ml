@@ -23,7 +23,7 @@ let find_max t =
 ;;
 
 let hist_columns = [ "layer_name"; "bin_start"; "bin_end"; "count"; "type_" ]
-let calib_columns = [ "layer_name"; "type_"; "amax_type"; "amax_value" ]
+let calib_columns = [ "layer_name"; "type_"; "amax_type"; "amax_value"; "mse"; "format" ]
 
 let write_row oc row =
   Stdio.Out_channel.output_string oc row;
@@ -47,6 +47,10 @@ let write_histogram oc layer_name (ttype, t) =
   let module H = Histogram in
   Stdio.printf "%s\n" layer_name;
   Stdio.Out_channel.flush Stdio.stdout;
+  let calib_row name maxval mse m e =
+    layer_name, ttype, name, Float.to_string maxval, Float.to_string mse, fp_format m e
+  in
+  let t = Tensor.to_ t ~device:(Device.Cuda 0) in
   let t = Tensor.abs_ t in
   let x_max = find_max t in
   let h_calib = H.make_t ~num_bins ~x_max in
@@ -58,7 +62,6 @@ let write_histogram oc layer_name (ttype, t) =
       ~numel:(numel t)
       ~percentile:(Float.of_int percentile)
   in
-  let t = Tensor.to_ t ~device:(Device.Cuda 0) in
   let mse_results =
     Array.map mantissa_bits ~f:(fun mb -> Mse.amax_mse t ~x_max ~num_mantissa_bits:mb)
     |> Array.to_list
@@ -73,27 +76,32 @@ let write_histogram oc layer_name (ttype, t) =
     let row = String.concat ~sep:"," row in
     write_row oc row);
   let i = ref 0 in
-  let mse_rows =
-    List.(
-      mse_results
-      >>= fun mse_res ->
-      let mb = mantissa_bits.(!i) in
-      let exp = 7 - mb in
-      let mse_pos, _mse_val = mse_res in
-      let mse_pos = Array.to_list mse_pos in
-      i := !i + 1;
-      List.map mse_pos ~f:(fun pos ->
-        layer_name, ttype, fp_format mb exp ^ "_min_mse", Float.to_string pos))
-  in
-  [ layer_name, ttype, Int.to_string percentile ^ "_percentile", Float.to_string amax_perc
-  ; layer_name, ttype, "tensor_max", Float.to_string x_max
-  ]
-  @ mse_rows
+  let meandims = List.init (List.length (Tensor.shape t)) ~f:Fn.id in
+  List.(
+    mse_results
+    >>= fun mse_res ->
+    let mb = mantissa_bits.(!i) in
+    let exp = 7 - mb in
+    let mses =
+      List.map
+        [ Int.to_string percentile ^ "_percentile", amax_perc; "tensor_max", x_max ]
+        ~f:(fun (name, maxval) ->
+          let maxval_t = Tensor.of_float0 ~device:(Tensor.device t) maxval in
+          let xfp = Mse.quantize_to_fp8 t maxval_t ~num_mantissa_bits:mb in
+          let mse = Mse.calc_mse t xfp meandims in
+          let mse = Tensor.to_float0_exn mse in
+          calib_row name maxval mse mb exp)
+    in
+    let mse_pos, mse_val = mse_res in
+    let mse_pos = Array.zip_exn mse_pos mse_val |> Array.to_list in
+    i := !i + 1;
+    mses
+    @ List.map mse_pos ~f:(fun (maxval, mse) -> calib_row "min_mse" maxval mse mb exp))
 ;;
 
 let write_calib calib_oc (_, calib_stats) =
-  List.iter calib_stats ~f:(fun (ln, ttype, amax_type, amax_value) ->
-    let row = String.concat ~sep:"," [ ln; ttype; amax_type; amax_value ] in
+  List.iter calib_stats ~f:(fun (ln, ttype, amax_type, amax_value, mse, format) ->
+    let row = String.concat ~sep:"," [ ln; ttype; amax_type; amax_value; mse; format ] in
     write_row calib_oc row)
 ;;
 

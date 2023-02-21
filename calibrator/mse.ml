@@ -27,6 +27,12 @@ let quantize_to_fp8 t maxval ~num_mantissa_bits =
   round (div x_clipped scales) * scales
 ;;
 
+let calc_mse t xfp meandims =
+  let open Tensor in
+  let mse = pow (t - xfp) ~exponent:(of_int0 2 ~device:(device t)) in
+  mean_dim mse ~dim:(Some meandims) ~keepdim:false ~dtype:(kind mse)
+;;
+
 let amax_mse t ~x_max ~num_mantissa_bits =
   let open Tensor in
   let mul_factor mul = Scalar.f (mul *. x_max) in
@@ -46,9 +52,7 @@ let amax_mse t ~x_max ~num_mantissa_bits =
   while !i < maxval_span_length do
     let maxval = select linspaces ~dim:0 ~index:!i in
     let xfp = quantize_to_fp8 t maxval ~num_mantissa_bits in
-    let mse = pow (t - xfp) ~exponent:(of_int0 2 ~device:(device t)) in
-    let mse = mean_dim mse ~dim:(Some meandims) ~keepdim:false ~dtype:(kind mse) in
-    let mse = Tensor.to_ mse ~device:(device t) in
+    let mse = calc_mse t xfp meandims in
     mses
       := Tensor.put_
            !mses
