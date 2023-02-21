@@ -121,6 +121,8 @@ let () =
   List.iter ~f:(load_tensors ht) files;
   (* Layers with weight *)
   let ht = Hashtbl.filter ht ~f:(fun v -> Hashtbl.mem v.layer_variables "weight") in
+  (* FIXME *)
+  let ttype = "inputs" in
   let hist_writer hist_oc calib_oc =
     List.iter files ~f:(fun filename ->
       let layer_info = Quantviz.Utils.layer_name_and_mem filename in
@@ -135,7 +137,6 @@ let () =
         let names_and_tensors = List.filter names_and_tensors ~f:filter_float_tensors in
         write_csv hist_oc calib_oc layer_name names_and_tensors))
   in
-  let ttype = "inputs" in
   let data_dir = "data" in
   let fname = Option.value_exn (Result.ok (Fpath.of_string data_dir)) in
   let _ = Bos.OS.Dir.create fname in
