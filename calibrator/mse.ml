@@ -44,17 +44,11 @@ let amax_mse t ~x_max ~num_mantissa_bits =
   let mses = Tensor.to_ (Tensor.zeros_like linspaces) ~device:(device t) in
   let mses = ref mses in
   while !i < maxval_span_length do
-    Stdio.printf "Mse:%d\n" !i;
     let maxval = select linspaces ~dim:0 ~index:!i in
     let xfp = quantize_to_fp8 t maxval ~num_mantissa_bits in
     let mse = pow (t - xfp) ~exponent:(of_int0 2 ~device:(device t)) in
     let mse = mean_dim mse ~dim:(Some meandims) ~keepdim:false ~dtype:(kind mse) in
     let mse = Tensor.to_ mse ~device:(device t) in
-    (match device !mses, device mse with
-     | Device.Cpu, Device.Cuda _ -> Stdio.printf "mses in cpu\n"
-     | Device.Cuda _, Device.Cpu -> Stdio.printf "mse in cpu\n"
-     | _ -> ());
-    Stdio.Out_channel.flush Stdio.stdout;
     mses
       := Tensor.put_
            !mses
