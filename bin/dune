@@ -1,7 +1,7 @@
 (executables
  (modules pt_to_npz)
  (names pt_to_npz)
- (libraries quantviz containers npy base stdio pyml))
+ (libraries quantviz npy base stdio pyml))
 
 (executables
  (modules npz_to_ot)
