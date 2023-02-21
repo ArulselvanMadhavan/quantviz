@@ -50,12 +50,12 @@ let amax_mse t ~x_max ~num_mantissa_bits =
     let mse = pow (t - xfp) ~exponent:(of_int0 2) in
     let mse = mean_dim mse ~dim:(Some meandims) ~keepdim:false ~dtype:(kind mse) in
     let mse = Tensor.to_ mse ~device:(device t) in
-    (match (device !mses), (device mse) with
-    | Device.Cpu, Device.Cuda _ -> Stdio.printf "mses in cpu\n";
-    | Device.Cuda _, Device.Cpu ->Stdio.printf "mse in cpu\n";
-    | _ -> ());
-    Stdio.Out_channel.flush Stdio.stdout;    
-    mses := Tensor.put_ !mses ~index:(of_int0 !i) ~source:mse ~accumulate:false;    
+    (* (match (device !mses), (device mse) with *)
+    (* | Device.Cpu, Device.Cuda _ -> Stdio.printf "mses in cpu\n"; *)
+    (* | Device.Cuda _, Device.Cpu ->Stdio.printf "mse in cpu\n"; *)
+    (* | _ -> ()); *)
+    (* Stdio.Out_channel.flush Stdio.stdout;     *)
+    mses := Tensor.put_ !mses ~index:(of_int0 !i) ~source:mse ~accumulate:false;
     Caml.Gc.full_major ();
     i := Int.(!i + 1)
   done;

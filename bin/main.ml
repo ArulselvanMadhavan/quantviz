@@ -124,6 +124,12 @@ let write_csv layer_name names_and_tensors =
   ()
 ;;
 
+let filter_float_tensors t =
+  match Tensor.kind t with
+  | T Float | T Double | T Half -> true
+  | _ -> false
+;;
+
 let () =
   let dir_name = "/nfs/nomster/data/arul/data/artifacts/opt125m/fp32/layers/" in
   let files = Quantviz.Utils.dir_contents dir_name ~ext:"ot" in
@@ -134,7 +140,7 @@ let () =
   Hashtbl.iteri ht ~f:(fun ~key ~data ->
     let names_and_tensors =
       [ (* "outputs", Hashtbl.find_exn data.outputs "0"; *)
-        "inputs", Hashtbl.find_exn data.inputs "0"
+        "inputs", filter_float_tensors (Hashtbl.find_exn data.inputs "0")
       ]
       (* @ Hashtbl.to_alist data.layer_variables *)
     in
