@@ -45,6 +45,8 @@ let fp_format m e =
 
 let write_histogram csv_file layer_name (ttype, t) =
   let module H = Histogram in
+  Stdio.printf "%s\n" layer_name;
+  Stdio.Out_channel.flush Stdio.stdout;
   let f oc _ =
     write_header oc hist_columns;
     let t = Tensor.abs_ t in
@@ -124,7 +126,7 @@ let write_csv layer_name names_and_tensors =
   ()
 ;;
 
-let filter_float_tensors t =
+let filter_float_tensors (_, t) =
   match Tensor.kind t with
   | T Float | T Double | T Half -> true
   | _ -> false
@@ -140,10 +142,11 @@ let () =
   Hashtbl.iteri ht ~f:(fun ~key ~data ->
     let names_and_tensors =
       [ (* "outputs", Hashtbl.find_exn data.outputs "0"; *)
-        "inputs", filter_float_tensors (Hashtbl.find_exn data.inputs "0")
+        "inputs", Hashtbl.find_exn data.inputs "0"
       ]
       (* @ Hashtbl.to_alist data.layer_variables *)
     in
+    let names_and_tensors = List.filter names_and_tensors ~f:filter_float_tensors in
     write_csv key names_and_tensors);
   ()
 ;;
