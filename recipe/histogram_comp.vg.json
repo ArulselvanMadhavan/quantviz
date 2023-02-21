@@ -180,7 +180,7 @@
               "strokeDash": {"value": [8, 4]},
               "stroke": {"scale": "color", "field": "amax_type"},
               "tooltip": {
-                "signal": "{\"amax_value\": format(datum[\"amax_value\"], \"\")}"
+                "signal": "{\"amax_value\": format(datum[\"amax_value\"], \"\"), \"mse\": format(datum[\"mse\"], \"\")}"
               },
               "description": {
                 "signal": "\"amax_value: \" + (format(datum[\"amax_value\"], \"\")) + \"; amax_type: \" + (isValid(datum[\"amax_type\"]) ? datum[\"amax_type\"] : \"\"+datum[\"amax_type\"])"

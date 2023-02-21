@@ -1,0 +1,29 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "data": {
+    "format": {
+      "type": "csv",
+      "parse": {"amax_value": "number", "mse": "number"}
+    },
+    "name": "calib",
+    "url": "data/layer_variables_calib.csv"
+  },
+  "transform": [{"calculate": "log(datum.mse)/log(10)", "as": "log_mse"}],
+  "mark": "line",
+  "encoding": {
+
+    "x": {"field": "layer_name", "type": "ordinal"},
+    "y": {"field": "log_mse", "type": "quantitative"},
+    "color": {
+      "field": "amax_type",
+      "type": "nominal",
+      "legend": {"orient": "top"}
+    },
+    "tooltip": [
+      {"field": "amax_type", "type": "nominal"},
+      {"field": "mse", "type": "quantitative"},
+      {"field": "format", "type": "nominal"},
+      {"field": "layer_name", "type": "ordinal"}
+    ]
+  }
+}
