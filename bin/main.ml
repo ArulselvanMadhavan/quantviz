@@ -69,6 +69,7 @@ let write_histogram oc layer_name (ttype, t) =
     Array.map mantissa_bits ~f:(fun mb -> Mse.amax_mse t ~x_max ~num_mantissa_bits:mb)
     |> Array.to_list
   in
+  (* Write hist counts to file *)
   let bins = Tensor.to_float1_exn h_calib.calib_bin_edges in
   let counts = Tensor.to_float1_exn counts in
   Array.iteri counts ~f:(fun idx count ->
@@ -80,26 +81,28 @@ let write_histogram oc layer_name (ttype, t) =
     write_row oc row);
   let i = ref 0 in
   let meandims = List.init (List.length (Tensor.shape t)) ~f:Fn.id in
-  List.(
-    mse_results
-    >>= fun mse_res ->
+  (* build calib rows *)
+  let calc_mse_row mb exp (name, maxval) =
+    let maxval_t = Tensor.of_float0 ~device:(Tensor.device t) maxval in
+    let xfp = Mse.quantize_to_fp8 t maxval_t ~num_mantissa_bits:mb in
+    let mse = Mse.calc_mse t xfp meandims in
+    let mse = Tensor.to_float0_exn mse in
+    calib_row name maxval mse mb exp
+  in
+  let mse_result_to_row mse_res =
     let mb = mantissa_bits.(!i) in
     let exp = 7 - mb in
-    let mses =
-      List.map
-        [ Int.to_string percentile ^ "_percentile", amax_perc; "tensor_max", x_max ]
-        ~f:(fun (name, maxval) ->
-          let maxval_t = Tensor.of_float0 ~device:(Tensor.device t) maxval in
-          let xfp = Mse.quantize_to_fp8 t maxval_t ~num_mantissa_bits:mb in
-          let mse = Mse.calc_mse t xfp meandims in
-          let mse = Tensor.to_float0_exn mse in
-          calib_row name maxval mse mb exp)
+    let need_mses =
+      [ Int.to_string percentile ^ "_percentile", amax_perc; "tensor_max", x_max ]
     in
+    let mses = List.map need_mses ~f:(calc_mse_row mb exp) in
     let mse_pos, mse_val = mse_res in
     let mse_pos = Array.zip_exn mse_pos mse_val |> Array.to_list in
     i := !i + 1;
     mses
-    @ List.map mse_pos ~f:(fun (maxval, mse) -> calib_row "min_mse" maxval mse mb exp))
+    @ List.map mse_pos ~f:(fun (maxval, mse) -> calib_row "min_mse" maxval mse mb exp)
+  in
+  List.(mse_results >>= mse_result_to_row)
 ;;
 
 let write_calib calib_oc (_, calib_stats) =
