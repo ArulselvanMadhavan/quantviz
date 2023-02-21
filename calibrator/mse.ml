@@ -41,7 +41,8 @@ let amax_mse t ~x_max ~num_mantissa_bits =
   let ndims = List.length (shape t) in
   let meandims = List.init ndims ~f:Fn.id in
   let i = ref 0 in
-  let mses = ref (Tensor.zeros_like linspaces) in
+  let mses = Tensor.to_ (Tensor.zeros_like linspaces) ~device:(device t) in
+  let mses = ref mses in
   while !i < maxval_span_length do
     Stdio.printf "Mse:%d\n" !i;
     Stdio.Out_channel.flush Stdio.stdout;
