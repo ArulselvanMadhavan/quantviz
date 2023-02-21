@@ -45,8 +45,6 @@ let fp_format m e =
 
 let write_histogram oc layer_name (ttype, t) =
   let module H = Histogram in
-  Stdio.printf "%s\n" layer_name;
-  Stdio.Out_channel.flush Stdio.stdout;
   let calib_row name maxval mse m e =
     layer_name, ttype, name, Float.to_string maxval, Float.to_string mse, fp_format m e
   in
@@ -152,6 +150,8 @@ let () =
   let ht = Hashtbl.filter ht ~f:(fun v -> Hashtbl.mem v.layer_variables "weight") in
   let hist_writer hist_oc calib_oc =
     let process_tensors layer_name =
+      Stdio.printf "%s\n" layer_name;
+      Stdio.Out_channel.flush Stdio.stdout;
       Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
         let names_and_tensors = info_type_to_tensors data in
         let names_and_tensors = List.filter names_and_tensors ~f:filter_float_tensors in
