@@ -58,7 +58,7 @@ let write_histogram csv_file layer_name (ttype, t) =
         ~numel:(numel t)
         ~percentile:(Float.of_int percentile)
     in
-    let t = Tensor.to_ t ~device:(Device.Cuda 0) in
+    (* let t = Tensor.to_ t ~device:(Device.Cuda 0) in *)
     let mse_results =
       Array.map mantissa_bits ~f:(fun mb -> Mse.amax_mse t ~x_max ~num_mantissa_bits:mb)
       |> Array.to_list
