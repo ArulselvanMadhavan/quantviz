@@ -44,13 +44,16 @@ let fp_format m e =
   "M" ^ m ^ "E" ^ e
 ;;
 
-let write_histogram oc layer_name (ttype, t) =
+let write_histogram device_id oc layer_name (ttype, t) =
   let module H = Histogram in
   let calib_row name maxval mse m e =
     layer_name, ttype, name, Float.to_string maxval, Float.to_string mse, fp_format m e
   in
   (* Histogram *)
-  let t = Tensor.to_ t ~device:(Device.Cuda 0) in
+  let device =
+    if Cuda.is_available () && device_id >= 0 then Device.Cuda device_id else Device.Cpu
+  in
+  let t = Tensor.to_ t ~device in
   let t = Tensor.abs_ t in
   let x_max = find_max t in
   let h_calib = H.make_t ~num_bins ~x_max in
@@ -111,9 +114,11 @@ let write_calib calib_oc (_, calib_stats) =
     write_row calib_oc row)
 ;;
 
-let write_csv hist_oc calib_oc layer_name names_and_tensors =
+let write_csv hist_oc calib_oc device_id layer_name names_and_tensors =
   (* write histogram *)
-  let calib_stats = List.map names_and_tensors ~f:(write_histogram hist_oc layer_name) in
+  let calib_stats =
+    List.map names_and_tensors ~f:(write_histogram device_id hist_oc layer_name)
+  in
   (* write calib stats *)
   let zipped_stats = List.zip_exn names_and_tensors calib_stats in
   let _ = List.(zipped_stats >>| write_calib calib_oc) in
@@ -143,8 +148,7 @@ let info_type_to_tensors (lc : Layercontents.t) =
   | _ -> []
 ;;
 
-let handle_dir dir_name =
-  (* let dir_name = "/nfs/nomster/data/arul/data/artifacts/opt125m/fp32/layers/" in *)
+let handle_dir dir_name device_id =
   let files = Quantviz.Utils.dir_contents dir_name ~ext:"ot" in
   let files =
     List.filter files ~f:(fun fname ->
@@ -155,14 +159,14 @@ let handle_dir dir_name =
   List.iter ~f:(load_tensors ht) files;
   (* Layers with weight *)
   let ht = Hashtbl.filter ht ~f:(fun v -> Hashtbl.mem v.layer_variables "weight") in
-  let hist_writer hist_oc calib_oc =
+  let hist_writer hist_oc calib_oc device_id =
     let process_tensors layer_name =
       Stdio.printf "%s\n" layer_name;
       Stdio.Out_channel.flush Stdio.stdout;
       Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
         let names_and_tensors = info_type_to_tensors data in
         let names_and_tensors = List.filter names_and_tensors ~f:filter_float_tensors in
-        write_csv hist_oc calib_oc layer_name names_and_tensors)
+        write_csv hist_oc calib_oc device_id layer_name names_and_tensors)
     in
     (* To maintain order iter through files in the order *)
     List.(filter_map files ~f:filter_by_info_type |> iter ~f:process_tensors)
@@ -181,7 +185,7 @@ let handle_dir dir_name =
             (csv_file (info_type ^ "_calib"))
             (fun calib_oc _ ->
               write_header calib_oc calib_columns;
-              Bos_setup.R.ok (hist_writer hist_oc calib_oc))
+              Bos_setup.R.ok (hist_writer hist_oc calib_oc device_id))
             ()
         in
         Bos_setup.R.ok ())
@@ -206,6 +210,11 @@ let dir_arg =
   Arg.(required & pos 0 (some string) None & info [] ~docv:"DIRECTORY" ~doc)
 ;;
 
+let device_arg =
+  let doc = "Torch device to run on; Defaults to CPU, if not provided" in
+  Arg.(value & opt int (-1) & info [ "d"; "cuda-device-id" ] ~doc)
+;;
+
 let generate_cmd =
   let doc = "Generate FP8 quantization errors" in
   let man =
@@ -216,7 +225,7 @@ let generate_cmd =
     ]
   in
   let info = Cmd.info "generate" ~doc ~man in
-  Cmd.v info Term.(const handle_dir $ dir_arg)
+  Cmd.v info Term.(const handle_dir $ dir_arg $ device_arg)
 ;;
 
 let main_cmd =
@@ -224,7 +233,7 @@ let main_cmd =
   let sdocs = Manpage.s_common_options in
   let info = Cmd.info "quantviz" ~version:"dev" ~doc ~sdocs ~man:help_sections in
   let default = Term.(ret (const (`Help (`Pager, None)))) in
-  Cmd.group info ~default [generate_cmd]
+  Cmd.group info ~default [ generate_cmd ]
 ;;
 
 let () = Stdlib.exit (Cmd.eval main_cmd)
