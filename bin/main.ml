@@ -142,21 +142,19 @@ let filter_float_tensors (_, t) =
   | _ -> false
 ;;
 
-let info_type = "layer_variables"
-
-let filter_by_info_type filename =
+let filter_by_info_type info_type filename =
   let layer_info = Quantviz.Utils.layer_name_and_mem filename in
   let layer_name = List.hd_exn layer_info in
   let it = List.last_exn layer_info in
   if String.equal info_type it
   then (
-    Stdio.printf "%s\n" layer_name;
+    Stdio.printf "%s\n" filename;
     Stdio.Out_channel.flush Stdio.stdout;
     Some layer_name)
   else None
 ;;
 
-let info_type_to_tensors (lc : Layercontents.t) =
+let info_type_to_tensors info_type (lc : Layercontents.t) =
   match info_type with
   | "inputs" -> [ info_type, Hashtbl.find_exn lc.inputs "0" ]
   | "output" -> [ info_type, Hashtbl.find_exn lc.outputs "0" ]
@@ -164,7 +162,7 @@ let info_type_to_tensors (lc : Layercontents.t) =
   | _ -> []
 ;;
 
-let handle_dir dir_name device_id =
+let handle_dir dir_name device_id info_type =
   let files = Quantviz.Utils.dir_contents dir_name ~ext:"ot" in
   let files =
     List.filter files ~f:(fun fname ->
@@ -178,12 +176,12 @@ let handle_dir dir_name device_id =
   let hist_writer hist_oc calib_oc device_id =
     let process_tensors layer_name =
       Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
-        let names_and_tensors = info_type_to_tensors data in
+        let names_and_tensors = info_type_to_tensors info_type data in
         let names_and_tensors = List.filter names_and_tensors ~f:filter_float_tensors in
         write_csv hist_oc calib_oc device_id layer_name names_and_tensors)
     in
     (* To maintain order iter through files in the order *)
-    List.(filter_map files ~f:filter_by_info_type |> iter ~f:process_tensors)
+    List.(filter_map files ~f:(filter_by_info_type info_type) |> iter ~f:process_tensors)
   in
   let data_dir = "data" in
   let fname = Option.value_exn (Result.ok (Fpath.of_string data_dir)) in
@@ -229,6 +227,14 @@ let device_arg =
   Arg.(value & opt int (-1) & info [ "d"; "cuda-device-id" ] ~doc)
 ;;
 
+let info_type_arg =
+  let doc = "inputs|outputs|layer_variables" in
+  Arg.(
+    required
+    & pos 1 (some string) None
+    & info [] ~docv:"TENSOR_TYPE:inputs|layer_variables|outputs" ~doc)
+;;
+
 let generate_cmd =
   let doc = "Generate FP8 quantization errors" in
   let man =
@@ -239,7 +245,7 @@ let generate_cmd =
     ]
   in
   let info = Cmd.info "generate" ~doc ~man in
-  Cmd.v info Term.(const handle_dir $ dir_arg $ device_arg)
+  Cmd.v info Term.(const handle_dir $ dir_arg $ device_arg $ info_type_arg)
 ;;
 
 let main_cmd =
