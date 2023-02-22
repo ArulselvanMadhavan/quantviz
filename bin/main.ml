@@ -59,6 +59,8 @@ let write_histogram device_id oc layer_name (ttype, t) =
     , fp_format m e )
   in
   (* Histogram *)
+  Stdio.printf "Cuda:%b\n" (Cuda.is_available ());
+  Stdio.Out_channel.flush Stdio.stdout;
   let device =
     if Cuda.is_available () && device_id >= 0 then Device.Cuda device_id else Device.Cpu
   in
