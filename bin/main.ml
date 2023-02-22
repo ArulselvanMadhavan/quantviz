@@ -58,9 +58,6 @@ let write_histogram device_id oc layer_name (ttype, t) =
     , Float.to_string sqnr
     , fp_format m e )
   in
-  (* Histogram *)
-  Stdio.printf "Cuda:%b\n" (Cuda.is_available ());
-  Stdio.Out_channel.flush Stdio.stdout;
   let device =
     if Cuda.is_available () && device_id >= 0 then Device.Cuda device_id else Device.Cpu
   in
@@ -165,6 +162,9 @@ let info_type_to_tensors info_type (lc : Layercontents.t) =
 ;;
 
 let handle_dir dir_name device_id info_type =
+    (* Histogram *)
+  Stdio.printf "Is Cuda_avail:%b\n" (Cuda.is_available ());
+  Stdio.Out_channel.flush Stdio.stdout;
   let files = Quantviz.Utils.dir_contents dir_name ~ext:"ot" in
   let files =
     List.filter files ~f:(fun fname ->

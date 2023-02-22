@@ -3,17 +3,21 @@
   "data": {
     "format": {
       "type": "csv",
-      "parse": {"amax_value": "number", "mse": "number"}
+      "parse": {"amax_value": "number", "mse": "number", "sqnr": "number"}
     },
     "name": "calib",
-    "url": "data/layer_variables_calib.csv"
+    "url": "data/replace_me_calib.csv"
   },
-  "transform": [{"calculate": "log(datum.mse)/log(10)", "as": "log_mse"}],
+  "transform": [
+    {
+      "aggregate": [{"op": "mean", "field": "sqnr", "as": "mean_sqnr"}],
+      "groupby": ["layer_name", "amax_type"]
+    }
+  ],
   "mark": "line",
   "encoding": {
-
     "x": {"field": "layer_name", "type": "ordinal"},
-    "y": {"field": "log_mse", "type": "quantitative"},
+    "y": {"field": "mean_sqnr", "type": "quantitative"},
     "color": {
       "field": "amax_type",
       "type": "nominal",
