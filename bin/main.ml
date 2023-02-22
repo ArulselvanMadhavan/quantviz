@@ -1,6 +1,7 @@
 open Torch
 open Base
 open Calibrator
+open Cmdliner
 
 (* constants *)
 let percentile = 99
@@ -35,7 +36,7 @@ let write_header oc columns =
   write_row oc header
 ;;
 
-let mantissa_bits = [| 5; 4 ; 3; 2|]
+let mantissa_bits = [| 5; 4; 3; 2 |]
 
 let fp_format m e =
   let m = Int.to_string m in
@@ -142,8 +143,8 @@ let info_type_to_tensors (lc : Layercontents.t) =
   | _ -> []
 ;;
 
-let () =
-  let dir_name = "/nfs/nomster/data/arul/data/artifacts/opt125m/fp32/layers/" in
+let handle_dir dir_name =
+  (* let dir_name = "/nfs/nomster/data/arul/data/artifacts/opt125m/fp32/layers/" in *)
   let files = Quantviz.Utils.dir_contents dir_name ~ext:"ot" in
   let files =
     List.filter files ~f:(fun fname ->
@@ -188,3 +189,42 @@ let () =
   in
   ()
 ;;
+
+let help_sections =
+  [ `S Manpage.s_common_options
+  ; `P "These options are common to all commands."
+  ; `S "MORE HELP"
+  ; `P "Use `$(mname) $(i,COMMAND) --help' for help on a single command."
+  ; `Noblank
+  ; `S Manpage.s_bugs
+  ; `P "Check bug reports at https://github.com/ArulselvanMadhavan/quantviz/issues."
+  ]
+;;
+
+let dir_arg =
+  let doc = "Directory containing .ot files" in
+  Arg.(required & pos 0 (some string) None & info [] ~docv:"DIRECTORY" ~doc)
+;;
+
+let generate_cmd =
+  let doc = "Generate FP8 quantization errors" in
+  let man =
+    [ `S Manpage.s_description
+    ; `P
+        "Read the input directory recursively for .ot files and generate simulation \
+         errors"
+    ]
+  in
+  let info = Cmd.info "generate" ~doc ~man in
+  Cmd.v info Term.(const handle_dir $ dir_arg)
+;;
+
+let main_cmd =
+  let doc = "Generate FP8 simulation evaluation" in
+  let sdocs = Manpage.s_common_options in
+  let info = Cmd.info "quantviz" ~version:"dev" ~doc ~sdocs ~man:help_sections in
+  let default = Term.(ret (const (`Help (`Pager, None)))) in
+  Cmd.group info ~default [generate_cmd]
+;;
+
+let () = Stdlib.exit (Cmd.eval main_cmd)
