@@ -148,7 +148,12 @@ let filter_by_info_type filename =
   let layer_info = Quantviz.Utils.layer_name_and_mem filename in
   let layer_name = List.hd_exn layer_info in
   let it = List.last_exn layer_info in
-  if String.equal info_type it then Some layer_name else None
+  if String.equal info_type it
+  then (
+    Stdio.printf "%s\n" layer_name;
+    Stdio.Out_channel.flush Stdio.stdout;
+    Some layer_name)
+  else None
 ;;
 
 let info_type_to_tensors (lc : Layercontents.t) =
@@ -172,8 +177,6 @@ let handle_dir dir_name device_id =
   let ht = Hashtbl.filter ht ~f:(fun v -> Hashtbl.mem v.layer_variables "weight") in
   let hist_writer hist_oc calib_oc device_id =
     let process_tensors layer_name =
-      Stdio.printf "%s\n" layer_name;
-      Stdio.Out_channel.flush Stdio.stdout;
       Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
         let names_and_tensors = info_type_to_tensors data in
         let names_and_tensors = List.filter names_and_tensors ~f:filter_float_tensors in
