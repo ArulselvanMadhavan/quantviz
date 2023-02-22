@@ -33,6 +33,18 @@ let calc_mse t xfp meandims =
   mean_dim mse ~dim:(Some meandims) ~keepdim:false ~dtype:(kind mse)
 ;;
 
+let calc_sqnr t qt meandims =
+  let open Tensor in
+  let two = of_int0 ~device:(device t) 2 in
+  let noise = pow (qt - t) ~exponent:two in
+  let signal = pow t ~exponent:two in
+  let noise = mean_dim noise ~dim:(Some meandims) ~keepdim:false ~dtype:(kind noise) in
+  let signal = mean_dim signal ~dim:(Some meandims) ~keepdim:false ~dtype:(kind signal) in
+  let ratio = div signal noise in
+  let ratio = log10 ratio in
+  mul_scalar ratio (Scalar.i 10)
+;;
+
 let amax_mse t ~x_max ~num_mantissa_bits =
   let open Tensor in
   let mul_factor mul = Scalar.f (mul *. x_max) in
@@ -71,7 +83,10 @@ let amax_mse t ~x_max ~num_mantissa_bits =
       let best_mse_idx = Tensor.( .%[] ) best_mse i in
       let mse_pos = Tensor.( .%.{} ) linspaces [ best_mse_idx; i ] in
       let mse_val = Tensor.( .%.{} ) mses [ best_mse_idx; i ] in
-      mse_pos, mse_val)
+      let mse_pos_t = of_float0 mse_pos ~device:(device t) in
+      let sqnr = calc_sqnr t (quantize_to_fp8 t mse_pos_t ~num_mantissa_bits) meandims in
+      let sqnr = Tensor.to_float0_exn sqnr in
+      mse_pos, (mse_val, sqnr))
   in
-  Array.unzip maxval
+  maxval
 ;;

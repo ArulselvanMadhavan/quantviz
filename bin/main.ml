@@ -24,7 +24,10 @@ let find_max t =
 ;;
 
 let hist_columns = [ "layer_name"; "bin_start"; "bin_end"; "count"; "type_" ]
-let calib_columns = [ "layer_name"; "type_"; "amax_type"; "amax_value"; "mse"; "format" ]
+
+let calib_columns =
+  [ "layer_name"; "type_"; "amax_type"; "amax_value"; "mse"; "sqnr"; "format" ]
+;;
 
 let write_row oc row =
   Stdio.Out_channel.output_string oc row;
@@ -46,8 +49,14 @@ let fp_format m e =
 
 let write_histogram device_id oc layer_name (ttype, t) =
   let module H = Histogram in
-  let calib_row name maxval mse m e =
-    layer_name, ttype, name, Float.to_string maxval, Float.to_string mse, fp_format m e
+  let calib_row name maxval mse sqnr m e =
+    ( layer_name
+    , ttype
+    , name
+    , Float.to_string maxval
+    , Float.to_string mse
+    , Float.to_string sqnr
+    , fp_format m e )
   in
   (* Histogram *)
   let device =
@@ -88,8 +97,9 @@ let write_histogram device_id oc layer_name (ttype, t) =
     let maxval_t = Tensor.of_float0 ~device:(Tensor.device t) maxval in
     let xfp = Mse.quantize_to_fp8 t maxval_t ~num_mantissa_bits:mb in
     let mse = Mse.calc_mse t xfp meandims in
+    let sqnr = Mse.calc_sqnr t xfp meandims |> Tensor.to_float0_exn in
     let mse = Tensor.to_float0_exn mse in
-    calib_row name maxval mse mb exp
+    calib_row name maxval mse sqnr mb exp
   in
   let mse_result_to_row mse_res =
     let mb = mantissa_bits.(!i) in
@@ -98,19 +108,20 @@ let write_histogram device_id oc layer_name (ttype, t) =
       [ Int.to_string percentile ^ "_percentile", amax_perc; "tensor_max", x_max ]
     in
     let mses = List.map need_mses ~f:(calc_mse_row mb exp) in
-    let mse_pos, mse_val = mse_res in
-    let mse_pos = Array.zip_exn mse_pos mse_val |> Array.to_list in
+    let mse_pos = Array.to_list mse_res in
     i := !i + 1;
     mses
-    @ List.map mse_pos ~f:(fun (maxval, mse) ->
-        calib_row (fp_format mb exp ^ "_min_mse") maxval mse mb exp)
+    @ List.map mse_pos ~f:(fun (maxval, (mse, sqnr)) ->
+        calib_row (fp_format mb exp ^ "_min_mse") maxval mse sqnr mb exp)
   in
   List.(mse_results >>= mse_result_to_row)
 ;;
 
 let write_calib calib_oc (_, calib_stats) =
-  List.iter calib_stats ~f:(fun (ln, ttype, amax_type, amax_value, mse, format) ->
-    let row = String.concat ~sep:"," [ ln; ttype; amax_type; amax_value; mse; format ] in
+  List.iter calib_stats ~f:(fun (ln, ttype, amax_type, amax_value, mse, sqnr, format) ->
+    let row =
+      String.concat ~sep:"," [ ln; ttype; amax_type; amax_value; mse; sqnr; format ]
+    in
     write_row calib_oc row)
 ;;
 
