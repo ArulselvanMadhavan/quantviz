@@ -16,7 +16,6 @@ let load_tensors ht filename =
 ;;
 
 let numel t = List.fold (Tensor.size t) ~init:1 ~f:Int.( * )
-
 let hist_columns = [ "layer_name"; "bin_start"; "bin_end"; "count"; "type_" ]
 
 let calib_columns =
@@ -69,6 +68,8 @@ let write_histogram device_id oc layer_name (ttype, t) =
       ~percentile:(Float.of_int percentile)
   in
   (* Mse *)
+  Stdio.printf "Shape:%s\n" (Tensor.shape_str t);
+  Stdio.Out_channel.flush Stdio.stdout;
   let mse_results =
     Array.map mantissa_bits ~f:(fun mb -> Mse.amax_mse t ~x_max ~num_mantissa_bits:mb)
     |> Array.to_list
