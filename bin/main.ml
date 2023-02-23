@@ -146,10 +146,10 @@ let filter_by_info_type info_type filename =
   let layer_name = List.hd_exn layer_info in
   let it = List.last_exn layer_info in
   if String.equal info_type it
-  then (
-    Stdio.printf "%s\n" filename;
-    Stdio.Out_channel.flush Stdio.stdout;
-    Some layer_name)
+  then
+    (* Stdio.printf "%s\n" filename; *)
+    (* Stdio.Out_channel.flush Stdio.stdout; *)
+    Some layer_name
   else None
 ;;
 
@@ -161,19 +161,25 @@ let info_type_to_tensors info_type (lc : Layercontents.t) =
   | _ -> []
 ;;
 
+let filter_layers_by_name fname =
+  (* Early stop *)
+  let rec f = function
+    | substring :: _ when String.is_substring fname ~substring -> false
+    | _ :: xs -> f xs
+    | [] -> true
+  in
+  f [ "layer_norm"; "activation_fn" ]
+;;
+
 let handle_dir dir_name device_id info_type =
-    (* Histogram *)
+  (* Histogram *)
   Stdio.printf "Is Cuda_avail:%b\n" (Cuda.is_available ());
   Stdio.Out_channel.flush Stdio.stdout;
   let files = Quantviz.Utils.dir_contents dir_name ~ext:"ot" in
-  let files =
-    List.filter files ~f:(fun fname ->
-      (not (String.is_substring fname ~substring:"layer_norm"))
-      && not (String.is_substring fname ~substring:"activation_fn"))
-  in
+  let files = List.filter files ~f:filter_layers_by_name in
   let ht = Hashtbl.create ~size:(List.length files) (module String) in
   List.iter ~f:(load_tensors ht) files;
-  (* Layers with weight *)
+  (* select Layers with weight *)
   let ht = Hashtbl.filter ht ~f:(fun v -> Hashtbl.mem v.layer_variables "weight") in
   let hist_writer hist_oc calib_oc device_id =
     let process_tensors layer_name =
@@ -185,27 +191,27 @@ let handle_dir dir_name device_id info_type =
     (* To maintain order iter through files in the order *)
     List.(filter_map files ~f:(filter_by_info_type info_type) |> iter ~f:process_tensors)
   in
+  
   let data_dir = "data" in
   let fname = Option.value_exn (Result.ok (Fpath.of_string data_dir)) in
   let _ = Bos.OS.Dir.create fname in
   let csv_file name = Fpath.add_seg fname name |> Fpath.add_ext "csv" in
-  let _ =
-    Bos.OS.File.with_oc
-      (csv_file (info_type ^ "_hist"))
-      (fun hist_oc _ ->
-        write_header hist_oc hist_columns;
-        let _ =
-          Bos.OS.File.with_oc
-            (csv_file (info_type ^ "_calib"))
-            (fun calib_oc _ ->
-              write_header calib_oc calib_columns;
-              Bos_setup.R.ok (hist_writer hist_oc calib_oc device_id))
-            ()
-        in
-        Bos_setup.R.ok ())
-      ()
+  let open_files handler =
+    let write_to_files hist_oc calib_oc _ =
+      write_header hist_oc hist_columns;
+      write_header calib_oc calib_columns;
+      Bos_setup.R.ok (handler hist_oc calib_oc device_id)
+    in
+    let open_calib_file hist_oc _ =
+      let _ =
+        Bos.OS.File.with_oc (csv_file (info_type ^ "_calib")) (write_to_files hist_oc) ()
+      in
+      Bos_setup.R.ok ()
+    in
+    let _ = Bos.OS.File.with_oc (csv_file (info_type ^ "_hist")) open_calib_file () in
+    ()
   in
-  ()
+  open_files hist_writer
 ;;
 
 let help_sections =
