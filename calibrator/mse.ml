@@ -45,17 +45,29 @@ let calc_sqnr t qt meandims =
   mul_scalar ratio (Scalar.i 10)
 ;;
 
-let amax_mse t ~x_max ~num_mantissa_bits =
-  let open Tensor in
-  let mul_factor mul = Scalar.f (mul *. x_max) in
-  let lsp =
-    linspace
-      ~start:(mul_factor 0.1)
-      ~end_:(mul_factor 1.0)
+let calc_linspaces ?channel_dim t x_max =
+  let mul_factor x_max mul = Scalar.f (mul *. x_max) in
+  let linspace (t, x_max) =
+    Tensor.linspace
+      ~start:(mul_factor x_max 0.1)
+      ~end_:(mul_factor x_max 1.0)
       ~steps:maxval_span_length
-      ~options:(kind t, device t)
+      ~options:Tensor.(kind t, device t)
   in
-  let linspaces = unsqueeze lsp ~dim:1 in
+  let init = Lazy.from_fun (fun _ -> linspace (t, x_max) |> Tensor.unsqueeze ~dim:1) in
+  let handle_cdim _ dim =
+    let splits = Tensor.split t ~split_size:1 ~dim in
+    let x_maxs = List.map splits ~f:(Fn.compose Tensor.to_float0_exn Tensor.maximum) in
+    let ts = List.zip_exn splits x_maxs |> List.map ~f:linspace in
+    Lazy.from_val (Tensor.stack ts ~dim:1)
+  in
+  let result = Base.Option.fold channel_dim ~init ~f:handle_cdim in
+  Lazy.force_val result
+;;
+
+let amax_mse ?channel_dim t ~x_max ~num_mantissa_bits =
+  let open Tensor in
+  let linspaces = calc_linspaces ?channel_dim t x_max in
   let ndims = List.length (shape t) in
   let meandims = List.init ndims ~f:Fn.id in
   let i = ref 0 in

@@ -1,7 +1,8 @@
 open Torch
 
 val amax_mse
-  :  Tensor.t
+  :  ?channel_dim:int
+  -> Tensor.t
   -> x_max:float
   -> num_mantissa_bits:int
   -> (float * (float * float)) array

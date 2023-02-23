@@ -17,12 +17,6 @@ let load_tensors ht filename =
 
 let numel t = List.fold (Tensor.size t) ~init:1 ~f:Int.( * )
 
-let find_max t =
-  let ndims = List.length (Tensor.shape t) in
-  let x_max = Tensor.max_values t ~dim:(List.init ndims ~f:Fn.id) ~keepdim:false in
-  Tensor.to_float0_exn x_max
-;;
-
 let hist_columns = [ "layer_name"; "bin_start"; "bin_end"; "count"; "type_" ]
 
 let calib_columns =
@@ -63,7 +57,7 @@ let write_histogram device_id oc layer_name (ttype, t) =
   in
   let t = Tensor.to_ t ~device in
   let t = Tensor.abs_ t in
-  let x_max = find_max t in
+  let x_max = Tensor.maximum t |> Tensor.to_float0_exn in
   let h_calib = H.make_t ~num_bins ~x_max in
   let counts = H.collect h_calib t in
   (* xmax_percentile *)
@@ -191,7 +185,6 @@ let handle_dir dir_name device_id info_type =
     (* To maintain order iter through files in the order *)
     List.(filter_map files ~f:(filter_by_info_type info_type) |> iter ~f:process_tensors)
   in
-  
   let data_dir = "data" in
   let fname = Option.value_exn (Result.ok (Fpath.of_string data_dir)) in
   let _ = Bos.OS.Dir.create fname in
