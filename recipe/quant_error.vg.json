@@ -10,7 +10,7 @@
   },
   "transform": [
     {
-      "aggregate": [{"op": "mean", "field": "sqnr", "as": "mean_sqnr"}],
+      "aggregate": [{"op": "max", "field": "sqnr", "as": "mean_sqnr"}],
       "groupby": ["layer_name", "amax_type"]
     }
   ],
@@ -25,8 +25,7 @@
     },
     "tooltip": [
       {"field": "amax_type", "type": "nominal"},
-      {"field": "mse", "type": "quantitative"},
-      {"field": "format", "type": "nominal"},
+      {"field": "mean_sqnr", "type": "quantitative"},
       {"field": "layer_name", "type": "ordinal"}
     ]
   }
