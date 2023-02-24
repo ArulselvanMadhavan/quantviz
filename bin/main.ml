@@ -19,7 +19,15 @@ let numel t = List.fold (Tensor.size t) ~init:1 ~f:Int.( * )
 let hist_columns = [ "layer_name"; "bin_start"; "bin_end"; "count"; "type_" ]
 
 let calib_columns =
-  [ "layer_name"; "type_"; "amax_type"; "amax_value"; "mse"; "sqnr"; "format" ]
+  [ "layer_name"
+  ; "type_"
+  ; "amax_type"
+  ; "amax_start"
+  ; "amax_end"
+  ; "mse"
+  ; "sqnr"
+  ; "format"
+  ]
 ;;
 
 let write_row oc row =
@@ -40,23 +48,10 @@ let fp_format m e =
   "M" ^ m ^ "E" ^ e
 ;;
 
-let write_histogram device_id oc layer_name (ttype, t) =
+let dump_hist_to_file oc layer_name ttype x_max t =
   let module H = Histogram in
-  let calib_row name maxval mse sqnr m e =
-    ( layer_name
-    , ttype
-    , name
-    , Float.to_string maxval
-    , Float.to_string mse
-    , Float.to_string sqnr
-    , fp_format m e )
-  in
-  let device =
-    if Cuda.is_available () && device_id >= 0 then Device.Cuda device_id else Device.Cpu
-  in
-  let t = Tensor.to_ t ~device in
-  let t = Tensor.abs_ t in
-  let x_max = Tensor.maximum t |> Tensor.to_float0_exn in
+  (* Write hist counts to file *)
+  let x_max = Tensor.to_float0_exn x_max in
   let h_calib = H.make_t ~num_bins ~x_max in
   let counts = H.collect h_calib t in
   (* xmax_percentile *)
@@ -67,14 +62,6 @@ let write_histogram device_id oc layer_name (ttype, t) =
       ~numel:(numel t)
       ~percentile:(Float.of_int percentile)
   in
-  (* Mse *)
-  Stdio.printf "Shape:%s\n" (Tensor.shape_str t);
-  Stdio.Out_channel.flush Stdio.stdout;
-  let mse_results =
-    Array.map mantissa_bits ~f:(fun mb -> Mse.amax_mse t ~x_max ~num_mantissa_bits:mb)
-    |> Array.to_list
-  in
-  (* Write hist counts to file *)
   let bins = Tensor.to_float1_exn h_calib.calib_bin_edges in
   let counts = Tensor.to_float1_exn counts in
   Array.iteri counts ~f:(fun idx count ->
@@ -84,38 +71,67 @@ let write_histogram device_id oc layer_name (ttype, t) =
     let row = [ layer_name; bin_start; bin_end; count; ttype ] in
     let row = String.concat ~sep:"," row in
     write_row oc row);
+  amax_perc
+;;
+
+let write_histogram device_id oc layer_name (ttype, t) =
+  let module H = Histogram in
+  let calib_row name maxval mse sqnr m e =
+    [ layer_name
+    ; ttype
+    ; name
+    ; Tensor.minimum maxval |> Tensor.to_float0_exn |> Float.to_string
+    ; Tensor.maximum maxval |> Tensor.to_float0_exn |> Float.to_string
+    ; Float.to_string mse
+    ; Float.to_string sqnr
+    ; fp_format m e
+    ]
+  in
+  let device =
+    if Cuda.is_available () && device_id >= 0 then Device.Cuda device_id else Device.Cpu
+  in
+  let t = Tensor.to_ t ~device in
+  let t = Tensor.abs_ t in
+  let x_max = Tensor.maximum t in
+  let amax_perc = dump_hist_to_file oc layer_name ttype x_max t in
+  (* Mse *)
+  Stdio.printf "Shape:%s\n" (Tensor.shape_str t);
+  Stdio.Out_channel.flush Stdio.stdout;
+  let mse_results =
+    Array.map mantissa_bits ~f:(fun mb ->
+      Mse.amax_mse t ~channel_dim:1 ~num_mantissa_bits:mb)
+    |> Array.to_list
+  in
   let i = ref 0 in
   let meandims = List.init (List.length (Tensor.shape t)) ~f:Fn.id in
   (* build calib rows *)
   let calc_mse_row mb exp (name, maxval) =
-    let maxval_t = Tensor.of_float0 ~device:(Tensor.device t) maxval in
-    let xfp = Mse.quantize_to_fp8 t maxval_t ~num_mantissa_bits:mb in
+    (* let maxval_t = Tensor.of_float0 ~device:(Tensor.device t) maxval in *)
+    let xfp = Mse.quantize_to_fp8 t maxval ~num_mantissa_bits:mb in
     let mse = Mse.calc_mse t xfp meandims in
     let sqnr = Mse.calc_sqnr t xfp meandims |> Tensor.to_float0_exn in
     let mse = Tensor.to_float0_exn mse in
     calib_row name maxval mse sqnr mb exp
   in
-  let mse_result_to_row mse_res =
+  let mse_result_to_row maxval =
     let mb = mantissa_bits.(!i) in
     let exp = 7 - mb in
-    let need_mses =
-      [ Int.to_string percentile ^ "_percentile", amax_perc; "tensor_max", x_max ]
+    let mses =
+      [ Int.to_string percentile ^ "_percentile", Tensor.of_float0 amax_perc
+      ; "tensor_max", x_max
+      ; fp_format mb exp, maxval
+      ]
     in
-    let mses = List.map need_mses ~f:(calc_mse_row mb exp) in
-    let mse_pos = Array.to_list mse_res in
+    let mses = List.map mses ~f:(calc_mse_row mb exp) in
     i := !i + 1;
     mses
-    @ List.map mse_pos ~f:(fun (maxval, (mse, sqnr)) ->
-        calib_row (fp_format mb exp ^ "_min_mse") maxval mse sqnr mb exp)
   in
   List.(mse_results >>= mse_result_to_row)
 ;;
 
 let write_calib calib_oc (_, calib_stats) =
-  List.iter calib_stats ~f:(fun (ln, ttype, amax_type, amax_value, mse, sqnr, format) ->
-    let row =
-      String.concat ~sep:"," [ ln; ttype; amax_type; amax_value; mse; sqnr; format ]
-    in
+  List.iter calib_stats ~f:(fun xs ->
+    let row = String.concat ~sep:"," xs in
     write_row calib_oc row)
 ;;
 
@@ -167,15 +183,15 @@ let filter_layers_by_name fname =
 ;;
 
 let handle_dir dir_name device_id info_type =
-  (* Histogram *)
   Stdio.printf "Is Cuda_avail:%b\n" (Cuda.is_available ());
   Stdio.Out_channel.flush Stdio.stdout;
+  (* Select and filter files *)
   let files = Quantviz.Utils.dir_contents dir_name ~ext:"ot" in
   let files = List.filter files ~f:filter_layers_by_name in
   let ht = Hashtbl.create ~size:(List.length files) (module String) in
   List.iter ~f:(load_tensors ht) files;
-  (* select Layers with weight *)
   let ht = Hashtbl.filter ht ~f:(fun v -> Hashtbl.mem v.layer_variables "weight") in
+  (* Compute and write to files *)
   let hist_writer hist_oc calib_oc device_id =
     let process_tensors layer_name =
       Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
@@ -183,9 +199,9 @@ let handle_dir dir_name device_id info_type =
         let names_and_tensors = List.filter names_and_tensors ~f:filter_float_tensors in
         write_csv hist_oc calib_oc device_id layer_name names_and_tensors)
     in
-    (* To maintain order iter through files in the order *)
     List.(filter_map files ~f:(filter_by_info_type info_type) |> iter ~f:process_tensors)
   in
+  (* Create file handlers *)
   let data_dir = "data" in
   let fname = Option.value_exn (Result.ok (Fpath.of_string data_dir)) in
   let _ = Bos.OS.Dir.create fname in

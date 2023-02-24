@@ -4,7 +4,7 @@ open Torch
 
 let maxval_span_length = 111
 
-let quantize_to_fp8 t maxval ~num_mantissa_bits =
+let quantize_to_fp8 ?channel_dim t maxval ~num_mantissa_bits =
   let open Tensor in
   let device = device t in
   let one = of_float0 ~device 1. in
@@ -12,6 +12,14 @@ let quantize_to_fp8 t maxval ~num_mantissa_bits =
   let seven = of_int0 ~device 7 in
   let num_mantissa_bits = of_int0 ~device num_mantissa_bits in
   let exp_bits = seven - num_mantissa_bits in
+  (* maxval.shape == t.shape if channel_dim is not None *)
+  let f _ dim =
+    let shape =
+      List.init (List.length (shape t)) ~f:(fun i -> if Int.(i = dim) then -1 else 1)
+    in
+    reshape maxval ~shape
+  in
+  let maxval = Option.fold channel_dim ~init:maxval ~f in
   (* compute bias *)
   let exp_val = pow two ~exponent:exp_bits in
   let log2maxval = log2 maxval in
@@ -45,7 +53,8 @@ let calc_sqnr t qt meandims =
   mul_scalar ratio (Scalar.i 10)
 ;;
 
-let calc_linspaces ?channel_dim t x_max =
+let calc_linspaces ?channel_dim t =
+  let max_as_float t = Tensor.maximum t |> Tensor.to_float0_exn in
   let mul_factor x_max mul = Scalar.f (mul *. x_max) in
   let linspace (t, x_max) =
     Tensor.linspace
@@ -54,20 +63,19 @@ let calc_linspaces ?channel_dim t x_max =
       ~steps:maxval_span_length
       ~options:Tensor.(kind t, device t)
   in
-  let init = Lazy.from_fun (fun _ -> linspace (t, x_max) |> Tensor.unsqueeze ~dim:1) in
-  let handle_cdim _ dim =
+  let init () = linspace (t, max_as_float t) |> Tensor.unsqueeze ~dim:1 in
+  let handle_cdim _ dim () =
     let splits = Tensor.split t ~split_size:1 ~dim in
-    let x_maxs = List.map splits ~f:(Fn.compose Tensor.to_float0_exn Tensor.maximum) in
+    let x_maxs = List.map splits ~f:max_as_float in
     let ts = List.zip_exn splits x_maxs |> List.map ~f:linspace in
-    Lazy.from_val (Tensor.stack ts ~dim:1)
+    Tensor.stack ts ~dim:1
   in
-  let result = Base.Option.fold channel_dim ~init ~f:handle_cdim in
-  Lazy.force_val result
+  Option.fold channel_dim ~init ~f:handle_cdim ()
 ;;
 
-let amax_mse ?channel_dim t ~x_max ~num_mantissa_bits =
+let amax_mse ?channel_dim t ~num_mantissa_bits =
   let open Tensor in
-  let linspaces = calc_linspaces ?channel_dim t x_max in
+  let linspaces = calc_linspaces ?channel_dim t in
   let ndims = List.length (shape t) in
   let meandims = List.init ndims ~f:Fn.id in
   let i = ref 0 in
@@ -94,11 +102,11 @@ let amax_mse ?channel_dim t ~x_max ~num_mantissa_bits =
     Array.mapi maxval ~f:(fun i _ ->
       let best_mse_idx = Tensor.( .%[] ) best_mse i in
       let mse_pos = Tensor.( .%.{} ) linspaces [ best_mse_idx; i ] in
-      let mse_val = Tensor.( .%.{} ) mses [ best_mse_idx; i ] in
-      let mse_pos_t = of_float0 mse_pos ~device:(device t) in
-      let sqnr = calc_sqnr t (quantize_to_fp8 t mse_pos_t ~num_mantissa_bits) meandims in
-      let sqnr = Tensor.to_float0_exn sqnr in
-      mse_pos, (mse_val, sqnr))
+      (* let mse_val = Tensor.( .%.{} ) mses [ best_mse_idx; i ] in *)
+      (* let mse_pos_t = of_float0 mse_pos ~device:(device t) in *)
+      (* let sqnr = calc_sqnr t (quantize_to_fp8 t mse_pos_t ~num_mantissa_bits) meandims in *)
+      (* let sqnr = Tensor.to_float0_exn sqnr in *)
+      mse_pos)
   in
-  maxval
+  Tensor.of_float1 ~device:(device t) maxval
 ;;
