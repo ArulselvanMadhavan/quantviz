@@ -115,10 +115,10 @@ let write_histogram channel_dim device_id oc layer_name (ttype, t) =
     let mse = Tensor.to_float0_exn mse in
     calib_row name maxval mse sqnr mb exp
   in
-  let expand_to_channel_dim t =
-    Option.fold channel_dim ~init:t ~f:(fun t cdim ->
+  let expand_to_channel_dim maxval =
+    Option.fold channel_dim ~init:maxval ~f:(fun maxval cdim ->
       let num_channels = Array.get (Tensor.shape t |> Array.of_list) cdim in
-      Tensor.repeat t ~repeats:[ num_channels ])
+      Tensor.repeat maxval ~repeats:[ num_channels ])
   in
   let mse_result_to_row maxval =
     let mb = mantissa_bits.(!i) in
