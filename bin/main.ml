@@ -120,7 +120,7 @@ let write_histogram device_id oc layer_name (ttype, t) =
     calib_row name maxval mse sqnr mb exp
   in
   let expand_to_channel_dim t =
-    if Option.is_some channel_dim then Tensor.reshape t ~shape:[ num_channels ] else t
+    if Option.is_some channel_dim then Tensor.repeat t ~repeats:[ num_channels ] else t
   in
   let mse_result_to_row maxval =
     let mb = mantissa_bits.(!i) in
