@@ -94,7 +94,7 @@ let write_histogram device_id oc layer_name (ttype, t) =
   let t = Tensor.abs_ t in
   let cdim = 1 in
   let channel_dim = Some cdim in
-  let channel_size = Array.get (Tensor.shape t |> Array.of_list) cdim in
+  let num_channels = Array.get (Tensor.shape t |> Array.of_list) cdim in
   let x_max = Tensor.maximum t in
   let amax_perc =
     dump_hist_to_file oc layer_name ttype x_max t
@@ -120,7 +120,7 @@ let write_histogram device_id oc layer_name (ttype, t) =
     calib_row name maxval mse sqnr mb exp
   in
   let expand_to_channel_dim t =
-    if Option.is_some channel_dim then Tensor.reshape t ~shape:[ channel_size ] else t
+    if Option.is_some channel_dim then Tensor.reshape t ~shape:[ num_channels ] else t
   in
   let mse_result_to_row maxval =
     let mb = mantissa_bits.(!i) in
