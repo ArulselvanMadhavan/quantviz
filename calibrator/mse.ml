@@ -94,11 +94,11 @@ let amax_mse ?channel_dim t ~num_mantissa_bits =
     let maxval = select linspaces ~dim:0 ~index:!i in
     let xfp = quantize_to_fp8 t maxval ~num_mantissa_bits in
     let mse = calc_mse ?channel_dim t xfp meandims in
-    print_shape ~name:"mse" mse;
+    let numel = List.fold ~init:1 ~f:(Int.( * )) (Tensor.size mse) in
     mses
       := Tensor.put_
            !mses
-           ~index:(of_int0 !i ~device:(device t))
+           ~index:(Tensor.arange ~end_:(Scalar.i numel) ~options:(kind mse, device mse))
            ~source:mse
            ~accumulate:false;
     Caml.Gc.full_major ();
