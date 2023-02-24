@@ -146,6 +146,8 @@ let write_calib calib_oc (_, calib_stats) =
 
 let write_csv hist_oc calib_oc device_id layer_name names_and_tensors =
   (* write histogram *)
+  Stdio.printf "Processing: %s\n" layer_name;
+  Stdio.Out_channel.flush Stdio.stdout;
   let calib_stats =
     List.map names_and_tensors ~f:(write_histogram device_id hist_oc layer_name)
   in
