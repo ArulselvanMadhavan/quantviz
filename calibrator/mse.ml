@@ -35,8 +35,12 @@ let quantize_to_fp8 ?channel_dim t maxval ~num_mantissa_bits =
   round (div x_clipped scales) * scales
 ;;
 
-let calc_mse t xfp meandims =
+let calc_mse ?channel_dim t xfp meandims =
   let open Tensor in
+  let meandims =
+    Option.fold channel_dim ~init:meandims ~f:(fun acc cdim ->
+      List.filter acc ~f:(Int.( <> ) cdim))
+  in
   let mse = pow (t - xfp) ~exponent:(of_int0 2 ~device:(device t)) in
   mean_dim mse ~dim:(Some meandims) ~keepdim:false ~dtype:(kind mse)
 ;;
@@ -73,9 +77,14 @@ let calc_linspaces ?channel_dim t =
   Option.fold channel_dim ~init ~f:handle_cdim ()
 ;;
 
+(* let print_shape s = *)
+(*     Stdio.printf "Linspaces shape:%s\n" s; *)
+(*     Stdio.Out_channel.flush Stdio.stdout *)
+
 let amax_mse ?channel_dim t ~num_mantissa_bits =
   let open Tensor in
   let linspaces = calc_linspaces ?channel_dim t in
+  print_shape ~name:"linspaces" linspaces;
   let ndims = List.length (shape t) in
   let meandims = List.init ndims ~f:Fn.id in
   let i = ref 0 in
@@ -84,7 +93,8 @@ let amax_mse ?channel_dim t ~num_mantissa_bits =
   while !i < maxval_span_length do
     let maxval = select linspaces ~dim:0 ~index:!i in
     let xfp = quantize_to_fp8 t maxval ~num_mantissa_bits in
-    let mse = calc_mse t xfp meandims in
+    let mse = calc_mse ?channel_dim t xfp meandims in
+    print_shape ~name:"mse" mse;
     mses
       := Tensor.put_
            !mses
