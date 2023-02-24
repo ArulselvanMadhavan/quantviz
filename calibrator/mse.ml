@@ -101,6 +101,7 @@ let amax_mse ?channel_dim t ~num_mantissa_bits =
   done;
   let mses = !mses in
   let best_mse = Tensor.argmin mses ~dim:(Some 0) ~keepdim:false in
+  print_shape ~name:"best_mse" best_mse;
   let num_channels = Tensor.shape linspaces |> List.last_exn in
   let maxval = Array.create ~len:num_channels 0. in
   let maxval =
