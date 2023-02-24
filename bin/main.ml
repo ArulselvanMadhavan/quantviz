@@ -92,33 +92,42 @@ let write_histogram device_id oc layer_name (ttype, t) =
   in
   let t = Tensor.to_ t ~device in
   let t = Tensor.abs_ t in
+  let cdim = 1 in
+  let channel_dim = Some cdim in
+  let channel_size = Array.get (Tensor.shape t |> Array.of_list) cdim in
   let x_max = Tensor.maximum t in
-  let amax_perc = dump_hist_to_file oc layer_name ttype x_max t in
+  let amax_perc =
+    dump_hist_to_file oc layer_name ttype x_max t
+    |> Array.create ~len:1
+    |> Tensor.of_float1 ~device
+  in
   (* Mse *)
   Stdio.printf "Shape:%s\n" (Tensor.shape_str t);
   Stdio.Out_channel.flush Stdio.stdout;
   let mse_results =
     Array.map mantissa_bits ~f:(fun mb ->
-      Mse.amax_mse t ~channel_dim:1 ~num_mantissa_bits:mb)
+      Mse.amax_mse t ?channel_dim ~num_mantissa_bits:mb)
     |> Array.to_list
   in
   let i = ref 0 in
   let meandims = List.init (List.length (Tensor.shape t)) ~f:Fn.id in
   (* build calib rows *)
   let calc_mse_row mb exp (name, maxval) =
-    (* let maxval_t = Tensor.of_float0 ~device:(Tensor.device t) maxval in *)
-    let xfp = Mse.quantize_to_fp8 t maxval ~num_mantissa_bits:mb in
+    let xfp = Mse.quantize_to_fp8 ?channel_dim t maxval ~num_mantissa_bits:mb in
     let mse = Mse.calc_mse t xfp meandims in
     let sqnr = Mse.calc_sqnr t xfp meandims |> Tensor.to_float0_exn in
     let mse = Tensor.to_float0_exn mse in
     calib_row name maxval mse sqnr mb exp
   in
+  let expand_to_channel_dim t =
+    if Option.is_some channel_dim then Tensor.reshape t ~shape:[ channel_size ] else t
+  in
   let mse_result_to_row maxval =
     let mb = mantissa_bits.(!i) in
     let exp = 7 - mb in
     let mses =
-      [ Int.to_string percentile ^ "_percentile", Tensor.of_float0 amax_perc
-      ; "tensor_max", x_max
+      [ Int.to_string percentile ^ "_percentile", expand_to_channel_dim amax_perc
+      ; "tensor_max", expand_to_channel_dim x_max
       ; fp_format mb exp, maxval
       ]
     in
