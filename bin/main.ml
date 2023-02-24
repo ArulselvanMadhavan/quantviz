@@ -74,7 +74,7 @@ let dump_hist_to_file oc layer_name ttype x_max t =
   amax_perc
 ;;
 
-let write_histogram device_id oc layer_name (ttype, t) =
+let write_histogram channel_dim device_id oc layer_name (ttype, t) =
   let module H = Histogram in
   let calib_row name maxval mse sqnr m e =
     [ layer_name
@@ -92,9 +92,7 @@ let write_histogram device_id oc layer_name (ttype, t) =
   in
   let t = Tensor.to_ t ~device in
   let t = Tensor.abs_ t in
-  let cdim = 1 in
-  let channel_dim = Some cdim in
-  let num_channels = Array.get (Tensor.shape t |> Array.of_list) cdim in
+  let channel_dim = if channel_dim > 0 then Some channel_dim else None in
   let x_max = Tensor.maximum t in
   let amax_perc =
     dump_hist_to_file oc layer_name ttype x_max t
@@ -102,8 +100,6 @@ let write_histogram device_id oc layer_name (ttype, t) =
     |> Tensor.of_float1 ~device
   in
   (* Mse *)
-  Stdio.printf "Shape:%s\n" (Tensor.shape_str t);
-  Stdio.Out_channel.flush Stdio.stdout;
   let mse_results =
     Array.map mantissa_bits ~f:(fun mb ->
       Mse.amax_mse t ?channel_dim ~num_mantissa_bits:mb)
@@ -120,7 +116,9 @@ let write_histogram device_id oc layer_name (ttype, t) =
     calib_row name maxval mse sqnr mb exp
   in
   let expand_to_channel_dim t =
-    if Option.is_some channel_dim then Tensor.repeat t ~repeats:[ num_channels ] else t
+    Option.fold channel_dim ~init:t ~f:(fun t cdim ->
+      let num_channels = Array.get (Tensor.shape t |> Array.of_list) cdim in
+      Tensor.repeat t ~repeats:[ num_channels ])
   in
   let mse_result_to_row maxval =
     let mb = mantissa_bits.(!i) in
@@ -144,12 +142,14 @@ let write_calib calib_oc (_, calib_stats) =
     write_row calib_oc row)
 ;;
 
-let write_csv hist_oc calib_oc device_id layer_name names_and_tensors =
+let write_csv hist_oc calib_oc device_id channel_dim layer_name names_and_tensors =
   (* write histogram *)
   Stdio.printf "Processing: %s\n" layer_name;
   Stdio.Out_channel.flush Stdio.stdout;
   let calib_stats =
-    List.map names_and_tensors ~f:(write_histogram device_id hist_oc layer_name)
+    List.map
+      names_and_tensors
+      ~f:(write_histogram channel_dim device_id hist_oc layer_name)
   in
   (* write calib stats *)
   let zipped_stats = List.zip_exn names_and_tensors calib_stats in
@@ -193,7 +193,7 @@ let filter_layers_by_name fname =
   f [ "layer_norm"; "activation_fn" ]
 ;;
 
-let handle_dir dir_name device_id info_type =
+let handle_dir dir_name device_id info_type channel_dim =
   Stdio.printf "Is Cuda_avail:%b\n" (Cuda.is_available ());
   Stdio.Out_channel.flush Stdio.stdout;
   (* Select and filter files *)
@@ -208,7 +208,7 @@ let handle_dir dir_name device_id info_type =
       Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
         let names_and_tensors = info_type_to_tensors info_type data in
         let names_and_tensors = List.filter names_and_tensors ~f:filter_float_tensors in
-        write_csv hist_oc calib_oc device_id layer_name names_and_tensors)
+        write_csv hist_oc calib_oc device_id channel_dim layer_name names_and_tensors)
     in
     List.(filter_map files ~f:(filter_by_info_type info_type) |> iter ~f:process_tensors)
   in
@@ -256,6 +256,14 @@ let device_arg =
   Arg.(value & opt int (-1) & info [ "d"; "cuda-device-id" ] ~doc)
 ;;
 
+let channel_dim_arg =
+  let doc =
+    "Channel dim to use for per-channel quantization. If not provided, per-tensor \
+     quantization will be used"
+  in
+  Arg.(value & opt int (-1) & info [ "c"; "channel-dim" ] ~doc)
+;;
+
 let info_type_arg =
   let doc = "inputs|outputs|layer_variables" in
   Arg.(
@@ -274,7 +282,9 @@ let generate_cmd =
     ]
   in
   let info = Cmd.info "generate" ~doc ~man in
-  Cmd.v info Term.(const handle_dir $ dir_arg $ device_arg $ info_type_arg)
+  Cmd.v
+    info
+    Term.(const handle_dir $ dir_arg $ device_arg $ info_type_arg $ channel_dim_arg)
 ;;
 
 let main_cmd =

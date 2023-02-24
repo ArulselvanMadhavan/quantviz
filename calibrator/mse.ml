@@ -77,14 +77,9 @@ let calc_linspaces ?channel_dim t =
   Option.fold channel_dim ~init ~f:handle_cdim ()
 ;;
 
-(* let print_shape s = *)
-(*     Stdio.printf "Linspaces shape:%s\n" s; *)
-(*     Stdio.Out_channel.flush Stdio.stdout *)
-
 let amax_mse ?channel_dim t ~num_mantissa_bits =
   let open Tensor in
   let linspaces = calc_linspaces ?channel_dim t in
-  print_shape ~name:"linspaces" linspaces;
   let ndims = List.length (shape t) in
   let meandims = List.init ndims ~f:Fn.id in
   let i = ref 0 in
@@ -106,7 +101,6 @@ let amax_mse ?channel_dim t ~num_mantissa_bits =
   done;
   let mses = !mses in
   let best_mse = Tensor.argmin mses ~dim:(Some 0) ~keepdim:false in
-  print_shape ~name:"best_mse" best_mse;
   let num_channels = Tensor.shape linspaces |> List.last_exn in
   let maxval = Array.create ~len:num_channels 0. in
   let maxval =
