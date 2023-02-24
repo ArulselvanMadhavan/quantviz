@@ -20,7 +20,6 @@ let quantize_to_fp8 ?channel_dim t maxval ~num_mantissa_bits =
     reshape maxval ~shape
   in
   let maxval = Option.fold channel_dim ~init:maxval ~f in
-  Tensor.print maxval;
   (* compute bias *)
   let exp_val = pow two ~exponent:exp_bits in
   let log2maxval = log2 maxval in
@@ -98,6 +97,7 @@ let amax_mse ?channel_dim t ~num_mantissa_bits =
     i := Int.(!i + 1)
   done;
   let mses = !mses in
+  Tensor.print mses;  
   let best_mse = Tensor.argmin mses ~dim:(Some 0) ~keepdim:false in
   let num_channels = Tensor.shape linspaces |> List.last_exn in
   let maxval = Array.create ~len:num_channels 0. in
