@@ -89,16 +89,19 @@ let amax_mse ?channel_dim t ~num_mantissa_bits =
     let maxval = select linspaces ~dim:0 ~index:!i in
     let xfp = quantize_to_fp8 t maxval ~num_mantissa_bits in
     let mse = calc_mse ?channel_dim t xfp meandims in
-    Tensor.size mse |> List.iter ~f:(Stdio.printf "%d,");
-    let numel = List.fold ~init:1 ~f:Int.( * ) (Tensor.size mse) in
-    let index = Tensor.arange ~end_:(Scalar.i numel) ~options:(T Int64, device mse) in
-    if !i < 1 then Tensor.print index;
+    let num_channels =
+      Option.fold channel_dim ~init:1 ~f:(fun _ dim ->
+        Array.get (Tensor.shape t |> Array.of_list) dim)
+    in
+    let index =
+      Tensor.arange ~end_:(Scalar.i num_channels) ~options:(T Int64, device mse)
+    in
     mses := Tensor.put_ !mses ~index ~source:mse ~accumulate:false;
     Caml.Gc.full_major ();
     i := Int.(!i + 1)
   done;
   let mses = !mses in
-  Tensor.print mses;  
+  Tensor.print mses;
   let best_mse = Tensor.argmin mses ~dim:(Some 0) ~keepdim:false in
   let num_channels = Tensor.shape linspaces |> List.last_exn in
   let maxval = Array.create ~len:num_channels 0. in
