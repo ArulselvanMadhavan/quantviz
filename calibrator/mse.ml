@@ -98,7 +98,7 @@ let amax_mse ?channel_dim t ~num_mantissa_bits =
     mses
       := Tensor.put_
            !mses
-           ~index:(Tensor.arange ~end_:(Scalar.i numel) ~options:(T Int, device mse))
+           ~index:(Tensor.arange ~end_:(Scalar.i numel) ~options:(T Int64, device mse))
            ~source:mse
            ~accumulate:false;
     Caml.Gc.full_major ();
