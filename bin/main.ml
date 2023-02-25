@@ -39,7 +39,7 @@ let write_header oc columns =
   write_row oc header
 ;;
 
-let mantissa_bits = [| 5; 4; 3; 2 |]
+let mantissa_bits = [| 2;3;4;5|]
 
 let fp_format m e =
   let m = Int.to_string m in
