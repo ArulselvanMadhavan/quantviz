@@ -4,7 +4,7 @@ open Calibrator
 open Cmdliner
 
 (* constants *)
-let percentile = 99
+let percentiles = [| 99.; 99.9; 99.99 |]
 let num_bins = 2048
 
 let load_tensors ht filename =
@@ -56,11 +56,8 @@ let dump_hist_to_file oc layer_name ttype x_max t =
   let counts = H.collect h_calib t in
   (* xmax_percentile *)
   let amax_perc =
-    H.amax_percentile
-      h_calib
-      ~hist:counts
-      ~numel:(numel t)
-      ~percentile:(Float.of_int percentile)
+    Array.map percentiles ~f:(fun percentile ->
+      H.amax_percentile h_calib ~hist:counts ~numel:(numel t) ~percentile)
   in
   let bins = Tensor.to_float1_exn h_calib.calib_bin_edges in
   let counts = Tensor.to_float1_exn counts in
@@ -94,11 +91,7 @@ let write_histogram channel_dim device_id oc layer_name (ttype, t) =
   let t = Tensor.abs_ t in
   let channel_dim = if channel_dim > 0 then Some channel_dim else None in
   let x_max = Tensor.maximum t in
-  let amax_perc =
-    dump_hist_to_file oc layer_name ttype x_max t
-    |> Array.create ~len:1
-    |> Tensor.of_float1 ~device
-  in
+  let amax_perc = dump_hist_to_file oc layer_name ttype x_max t in
   (* Mse *)
   let mse_results =
     Array.map mantissa_bits ~f:(fun mb ->
@@ -124,10 +117,13 @@ let write_histogram channel_dim device_id oc layer_name (ttype, t) =
     let mb = mantissa_bits.(!i) in
     let exp = 7 - mb in
     let mses =
-      [ Int.to_string percentile ^ "_percentile", expand_to_channel_dim amax_perc
-      ; "tensor_max", expand_to_channel_dim x_max
-      ; fp_format mb exp, maxval
-      ]
+      Array.mapi percentiles ~f:(fun i percentile ->
+        let amax_perc = amax_perc.(i) |> Tensor.of_float0 in
+        Float.to_string percentile ^ "_percentile", expand_to_channel_dim amax_perc)
+    in
+    let mses =
+      Array.to_list mses
+      @ [ "tensor_max", expand_to_channel_dim x_max; fp_format mb exp, maxval ]
     in
     let mses = List.map mses ~f:(calc_mse_row mb exp) in
     i := !i + 1;
@@ -190,7 +186,7 @@ let filter_layers_by_name fname =
     | _ :: xs -> f xs
     | [] -> true
   in
-  f [ "layer_norm"; "activation_fn" ; "embed"]
+  f [ "layer_norm"; "activation_fn"; "embed" ]
 ;;
 
 let handle_dir dir_name device_id info_type channel_dim =
