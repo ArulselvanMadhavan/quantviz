@@ -190,7 +190,7 @@ let filter_layers_by_name fname =
     | _ :: xs -> f xs
     | [] -> true
   in
-  f [ "layer_norm"; "activation_fn" ]
+  f [ "layer_norm"; "activation_fn" ; "embed"]
 ;;
 
 let handle_dir dir_name device_id info_type channel_dim =
