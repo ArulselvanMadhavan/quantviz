@@ -94,9 +94,13 @@ let amax_mse ?channel_dim t ~num_mantissa_bits =
     (*     Array.get (Tensor.shape t |> Array.of_list) dim) *)
     (* in *)
     let index = Tensor.of_int0 ~device:(device t) !i in
-    if !i < 1 then Tensor.print mse;
-    if !i < 1 then Tensor.print index;
-    mses := Tensor.put_ !mses ~index ~source:mse ~accumulate:false;
+    mses
+      := Tensor.index_put_
+           !mses
+           ~indices:[ Some index; None ]
+           ~values:mse
+           ~accumulate:false;
+    (* mses := Tensor.put_ !mses ~index ~source:mse ~accumulate:false; *)
     Caml.Gc.full_major ();
     i := Int.(!i + 1)
   done;
