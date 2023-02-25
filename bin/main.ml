@@ -67,7 +67,6 @@ let dump_hist_to_file percentiles oc layer_name ttype x_max t =
     let row = [ layer_name; bin_start; bin_end; count; ttype ] in
     let row = String.concat ~sep:"," row in
     write_row oc row);
-  Caml.Gc.full_major ();        (* To avoid GPU mem overflow when a long list of percentiles are computed *)
   amax_perc
 ;;
 
@@ -127,6 +126,7 @@ let write_histogram channel_dim device_id percentiles oc layer_name (ttype, t) =
     in
     let mses = List.map mses ~f:(calc_mse_row mb exp) in
     i := !i + 1;
+      Caml.Gc.full_major ();        (* To avoid GPU mem overflow when a long list of percentiles are computed *)
     mses
   in
   List.(mse_results >>= mse_result_to_row)
