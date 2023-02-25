@@ -47,7 +47,7 @@ let fp_format m e =
   "M" ^ m ^ "E" ^ e
 ;;
 
-let dump_hist_to_file oc layer_name ttype x_max t =
+let dump_hist_to_file percentiles oc layer_name ttype x_max t =
   let module H = Histogram in
   (* Write hist counts to file *)
   let x_max = Tensor.to_float0_exn x_max in
@@ -70,7 +70,7 @@ let dump_hist_to_file oc layer_name ttype x_max t =
   amax_perc
 ;;
 
-let write_histogram channel_dim device_id oc layer_name (ttype, t) =
+let write_histogram channel_dim device_id percentiles oc layer_name (ttype, t) =
   let module H = Histogram in
   let calib_row name maxval mse sqnr m e =
     [ layer_name
@@ -90,7 +90,7 @@ let write_histogram channel_dim device_id oc layer_name (ttype, t) =
   let t = Tensor.abs_ t in
   let channel_dim = if channel_dim > 0 then Some channel_dim else None in
   let x_max = Tensor.maximum t in
-  let amax_perc = dump_hist_to_file oc layer_name ttype x_max t in
+  let amax_perc = dump_hist_to_file percentiles oc layer_name ttype x_max t in
   (* Mse *)
   let mse_results =
     Array.map mantissa_bits ~f:(fun mb ->
@@ -137,14 +137,22 @@ let write_calib calib_oc (_, calib_stats) =
     write_row calib_oc row)
 ;;
 
-let write_csv hist_oc calib_oc device_id channel_dim layer_name names_and_tensors =
+let write_csv
+  hist_oc
+  calib_oc
+  device_id
+  channel_dim
+  percentiles
+  layer_name
+  names_and_tensors
+  =
   (* write histogram *)
   Stdio.printf "Processing: %s\n" layer_name;
   Stdio.Out_channel.flush Stdio.stdout;
   let calib_stats =
     List.map
       names_and_tensors
-      ~f:(write_histogram channel_dim device_id hist_oc layer_name)
+      ~f:(write_histogram channel_dim device_id percentiles hist_oc layer_name)
   in
   (* write calib stats *)
   let zipped_stats = List.zip_exn names_and_tensors calib_stats in
@@ -188,7 +196,7 @@ let filter_layers_by_name fname =
   f [ "layer_norm"; "activation_fn"; "embed" ]
 ;;
 
-let handle_dir dir_name device_id info_type channel_dim =
+let handle_dir device_id channel_dim dir_name info_type percentiles =
   Stdio.printf "Is Cuda_avail:%b\n" (Cuda.is_available ());
   Stdio.Out_channel.flush Stdio.stdout;
   (* Select and filter files *)
@@ -203,7 +211,14 @@ let handle_dir dir_name device_id info_type channel_dim =
       Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
         let names_and_tensors = info_type_to_tensors info_type data in
         let names_and_tensors = List.filter names_and_tensors ~f:filter_float_tensors in
-        write_csv hist_oc calib_oc device_id channel_dim layer_name names_and_tensors)
+        write_csv
+          hist_oc
+          calib_oc
+          device_id
+          channel_dim
+          percentiles
+          layer_name
+          names_and_tensors)
     in
     List.(filter_map files ~f:(filter_by_info_type info_type) |> iter ~f:process_tensors)
   in
@@ -271,7 +286,7 @@ let percentile_arg =
   let doc = "percentiles" in
   Arg.(
     required
-    & pos 2 (some (list float)) None
+    & pos 2 (some (array float)) None
     & info [] ~docv:"percentile list:[99.0,99.9,99.99]" ~doc)
 ;;
 
@@ -287,7 +302,13 @@ let generate_cmd =
   let info = Cmd.info "generate" ~doc ~man in
   Cmd.v
     info
-    Term.(const handle_dir $ dir_arg $ device_arg $ info_type_arg $ channel_dim_arg)
+    Term.(
+      const handle_dir
+      $ device_arg
+      $ channel_dim_arg
+      $ dir_arg
+      $ info_type_arg
+      $ percentile_arg)
 ;;
 
 let main_cmd =
