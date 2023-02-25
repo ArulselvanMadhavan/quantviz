@@ -22,9 +22,10 @@ let quantize_to_fp8 ?channel_dim t maxval ~num_mantissa_bits =
   let maxval = Option.fold channel_dim ~init:maxval ~f in
   (* compute bias *)
   let exp_val = pow two ~exponent:exp_bits in
-  let log2maxval = log2 maxval in
-  let temp = log2 (two - pow two ~exponent:(neg num_mantissa_bits)) in
-  let bias = exp_val - log2maxval + temp - one in
+  (* let log2maxval = log2 maxval in *)
+  (* let temp = log2 (two - pow two ~exponent:(neg num_mantissa_bits)) in *)
+  (* let bias = exp_val - log2maxval + temp - one in *)
+  let bias = exp_val - one in
   let x_clipped = max t (neg maxval) in
   let x_clipped = min x_clipped maxval in
   let log_scales = floor (log2 (abs x_clipped + bias)) in
