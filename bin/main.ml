@@ -118,7 +118,7 @@ let write_histogram channel_dim device_id oc layer_name (ttype, t) =
     let exp = 7 - mb in
     let mses =
       Array.mapi percentiles ~f:(fun i percentile ->
-        let amax_perc = amax_perc.(i) |> Tensor.of_float0 in
+        let amax_perc = amax_perc.(i) |> Tensor.of_float0 ~device in
         Float.to_string percentile ^ "_percentile", expand_to_channel_dim amax_perc)
     in
     let mses =
