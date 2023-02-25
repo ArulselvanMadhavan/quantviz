@@ -5,7 +5,7 @@
   "data": [
     {
       "name": "source_0",
-      "url": "data/layer_variables_hist.csv",
+      "url": "data/replace_me_hist.csv",
       "format": {
         "type": "csv",
         "parse": {
@@ -42,17 +42,33 @@
     },
     {
       "name": "calib",
-      "url": "data/layer_variables_calib.csv",
+      "url": "data/replace_me_calib.csv",
       "format": {
         "type": "csv",
-        "parse": {"amax_value": "number"},
+        "parse": {
+          "amax_start": "number",
+          "amax_end": "number",
+          "mse": "number",
+          "sqnr": "number"
+        },
         "delimiter": ","
-      }
+      },
+      "transform": [
+        {
+          "type": "formula",
+          "expr": "datum.amax_start + ((datum.amax_end - datum.amax_start)/2.0)",
+          "as": "label_pos"
+        }
+      ]
     }
   ],
   "signals": [
     {"name": "child_width", "value": 800},
-    {"name": "child_height", "value": 200}
+    {"name": "child_height", "value": 200},
+    {
+      "name": "label_height",
+      "value": {"M2E5": 5, "M3E4": 10, "M4E3": 15, "M5E2": 20}
+    }
   ],
   "layout": {
     "padding": 20,
@@ -171,21 +187,22 @@
         },
         {
           "name": "layer_1_layer_0_marks",
-          "type": "rule",
-          "style": ["rule"],
+          "type": "rect",
+          "style": ["bar"],
           "from": {"data": "calib_for_layer"},
           "encode": {
             "update": {
-              "strokeWidth": {"value": 2},
+              "strokeWidth": {"value": 1},
               "strokeDash": {"value": [8, 4]},
               "stroke": {"scale": "color", "field": "amax_type"},
               "tooltip": {
-                "signal": "{\"amax_value\": format(datum[\"amax_value\"], \"\"), \"mse\": format(datum[\"mse\"], \"\")}"
+                "signal": "{\"amax_end\": format(datum[\"amax_end\"], \"\"), \"mse\": format(datum[\"mse\"], \"\"),\"amax_start\": format(datum[\"amax_start\"], \"\")}"
               },
               "description": {
-                "signal": "\"amax_value: \" + (format(datum[\"amax_value\"], \"\")) + \"; amax_type: \" + (isValid(datum[\"amax_type\"]) ? datum[\"amax_type\"] : \"\"+datum[\"amax_type\"])"
+                "signal": "\"amax_end: \" + (format(datum[\"amax_end\"], \"\")) + \"; amax_type: \" + (isValid(datum[\"amax_type\"]) ? datum[\"amax_type\"] : \"\"+datum[\"amax_type\"])"
               },
-              "x": {"scale": "x", "field": "amax_value"},
+              "x": {"scale": "x", "field": "amax_end"},
+              "x2": {"scale": "x", "field": "amax_start"},
               "y": {"value": 0},
               "y2": {"field": {"group": "height"}}
             }
@@ -196,22 +213,23 @@
           "type": "text",
           "style": ["text"],
           "from": {"data": "calib_for_layer"},
+          "transform": [],
           "encode": {
             "update": {
-              "baseline": {"value": "middle"},
+              "baseline": {"value": "top"},
               "text": {"signal": "datum.amax_type"},
               "dx": {"value": 0},
-              "dy": {"value": 0},
-              "angle": {"value": 45},
+              "dy": {"signal": "label_height[datum['amax_type']]"},
+              "angle": {"value": 90},
               "fill": {"scale": "color", "field": "amax_type"},
               "tooltip": {
-                "signal": "{\"amax_value\": format(datum[\"amax_value\"], \"\")}"
+                "signal": "{\"amax_end\": format(datum[\"amax_end\"], \"\"),\"amax_start\": format(datum[\"amax_start\"], \"\"), \"mse\":format(datum[\"mse\"], \"\"),\"format\":datum[\"format\"]}"
               },
               "description": {
-                "signal": "\"amax_value: \" + (format(datum[\"amax_value\"], \"\")) + \"; amax_type: \" + (isValid(datum[\"amax_type\"]) ? datum[\"amax_type\"] : \"\"+datum[\"amax_type\"])"
+                "signal": "\"amax_end: \" + (format(datum[\"amax_end\"], \"\")) + \"; amax_type: \" + (isValid(datum[\"amax_type\"]) ? datum[\"amax_type\"] : \"\"+datum[\"amax_type\"])"
               },
-              "x": {"scale": "x", "field": "amax_value"},
-              "align": {"value": "center"}
+              "x": {"scale": "x", "field": "label_pos"},
+              "align": {"value": "left"}
             }
           }
         }
