@@ -4,7 +4,6 @@ open Calibrator
 open Cmdliner
 
 (* constants *)
-let percentiles = [| 99.; 99.9; 99.99 |]
 let num_bins = 2048
 
 let load_tensors ht filename =
@@ -266,6 +265,14 @@ let info_type_arg =
     required
     & pos 1 (some string) None
     & info [] ~docv:"TENSOR_TYPE:inputs|layer_variables|outputs" ~doc)
+;;
+
+let percentile_arg =
+  let doc = "percentiles" in
+  Arg.(
+    required
+    & pos 2 (some (list float)) None
+    & info [] ~docv:"percentile list:[99.0,99.9,99.99]" ~doc)
 ;;
 
 let generate_cmd =
