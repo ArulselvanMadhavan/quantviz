@@ -202,6 +202,7 @@ let handle_dir device_id channel_dim dir_name info_type percentiles =
   Stdio.Out_channel.flush Stdio.stdout;
   (* Select and filter files *)
   let files = Quantviz.Utils.dir_contents dir_name ~ext:"ot" in
+  let files = List.rev files in
   let files = List.filter files ~f:filter_layers_by_name in
   let ht = Hashtbl.create ~size:(List.length files) (module String) in
   List.iter ~f:(load_tensors ht) files;
