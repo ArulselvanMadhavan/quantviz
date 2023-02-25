@@ -16,7 +16,7 @@
   ],
   "mark": "line",
   "encoding": {
-    "x": {"field": "layer_name", "type": "ordinal"},
+      "x": {"field": "layer_name", "type": "ordinal", "sort":null},
     "y": {"field": "mean_sqnr", "type": "quantitative"},
     "color": {
       "field": "amax_type",

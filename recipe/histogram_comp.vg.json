@@ -63,7 +63,7 @@
     }
   ],
   "signals": [
-    {"name": "child_width", "value": 800},
+    {"name": "child_width", "value": 1200},
     {"name": "child_height", "value": 200},
     {
       "name": "label_height",
@@ -94,7 +94,6 @@
       "type": "group",
       "role": "row-header",
       "from": {"data": "row_domain"},
-      "sort": {"field": "datum[\"layer_name\"]", "order": "ascending"},
       "title": {
         "text": {
           "signal": "isValid(parent[\"layer_name\"]) ? parent[\"layer_name\"] : \"\"+parent[\"layer_name\"]"
@@ -113,24 +112,6 @@
           "title": "log10_counts",
           "labelOverlap": true,
           "tickCount": {"signal": "ceil(child_height/40)"},
-          "zindex": 0
-        }
-      ]
-    },
-    {
-      "name": "column_footer",
-      "type": "group",
-      "role": "column-footer",
-      "encode": {"update": {"width": {"signal": "child_width"}}},
-      "axes": [
-        {
-          "scale": "x",
-          "orient": "bottom",
-          "grid": false,
-          "title": "bin_start, bin_end",
-          "labelFlush": true,
-          "labelOverlap": true,
-          "tickCount": {"signal": "ceil(child_width/40)"},
           "zindex": 0
         }
       ]
@@ -155,7 +136,6 @@
           ]
         }
       ],
-      "sort": {"field": ["datum[\"layer_name\"]"], "order": ["ascending"]},
       "encode": {
         "update": {
           "width": {"signal": "child_width"},
@@ -219,7 +199,7 @@
               "baseline": {"value": "top"},
               "text": {"signal": "datum.amax_type"},
               "dx": {"value": 0},
-              "dy": {"signal": "label_height[datum['amax_type']]"},
+              "dy": {"value": 0},
               "angle": {"value": 90},
               "fill": {"scale": "color", "field": "amax_type"},
               "tooltip": {
@@ -235,6 +215,16 @@
         }
       ],
       "axes": [
+        {
+          "scale": "x",
+          "orient": "bottom",
+          "grid": false,
+          "title": "bin_start, bin_end",
+          "labelFlush": true,
+          "labelOverlap": true,
+          "tickCount": {"signal": "ceil(child_width/40)"},
+          "zindex": 0
+        },
         {
           "scale": "y",
           "orient": "left",
