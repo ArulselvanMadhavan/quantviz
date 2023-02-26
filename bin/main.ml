@@ -211,10 +211,25 @@ let file_stats dir_name =
   files, ht
 ;;
 
-let run_vsq_sim _device_id _channel_dim dir_name _info_type =
-  let files, _ht = file_stats dir_name in
-  List.iter ~f:Stdio.print_string files;
-  ()
+let get_names_and_tensors info_type data =
+  let names_and_tensors = info_type_to_tensors info_type data in
+  List.filter names_and_tensors ~f:filter_float_tensors
+;;
+
+let get_device device_id =
+  if Cuda.is_available () && device_id > 0 then Device.Cuda device_id else Device.Cpu
+;;
+
+let run_vsq_sim device_id _channel_dim dir_name info_type =
+  let files, ht = file_stats dir_name in
+  let device = get_device device_id in
+  let process_tensors layer_name =
+    Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
+      let names_and_tensors = get_names_and_tensors info_type data in
+      Vsq.quantize device names_and_tensors;
+      ())
+  in
+  List.(filter_map files ~f:(filter_by_info_type info_type) |> iter ~f:process_tensors)
 ;;
 
 let run_fp8_sim device_id channel_dim dir_name info_type percentiles =
@@ -222,8 +237,7 @@ let run_fp8_sim device_id channel_dim dir_name info_type percentiles =
   let hist_writer hist_oc calib_oc device_id =
     let process_tensors layer_name =
       Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
-        let names_and_tensors = info_type_to_tensors info_type data in
-        let names_and_tensors = List.filter names_and_tensors ~f:filter_float_tensors in
+        let names_and_tensors = get_names_and_tensors info_type data in
         write_csv
           hist_oc
           calib_oc
