@@ -73,7 +73,7 @@ let calc_linspaces ?channel_dim t =
     let splits = Tensor.split t ~split_size:1 ~dim in
     let x_maxs = List.map splits ~f:max_as_float in
     let ts = List.zip_exn splits x_maxs |> List.map ~f:linspace in
-    Tensor.stack ts ~dim:1
+    Tensor.stack ts ~dim
   in
   Option.fold channel_dim ~init ~f:handle_cdim ()
 ;;

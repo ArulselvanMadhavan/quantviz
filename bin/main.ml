@@ -47,6 +47,12 @@ let fp_format m e =
   "M" ^ m ^ "E" ^ e
 ;;
 
+let get_device device_id =
+  if Cuda.is_available () && device_id > 0 then Device.Cuda device_id else Device.Cpu
+;;
+
+let get_channel_dim channel_dim = if channel_dim > 0 then Some channel_dim else None
+
 let dump_hist_to_file percentiles oc layer_name ttype x_max t =
   let module H = Histogram in
   (* Write hist counts to file *)
@@ -83,12 +89,10 @@ let write_histogram channel_dim device_id percentiles oc layer_name (ttype, t) =
     ; fp_format m e
     ]
   in
-  let device =
-    if Cuda.is_available () && device_id >= 0 then Device.Cuda device_id else Device.Cpu
-  in
+  let device = get_device device_id in
   let t = Tensor.to_ t ~device in
   let t = Tensor.abs_ t in
-  let channel_dim = if channel_dim > 0 then Some channel_dim else None in
+  let channel_dim = get_channel_dim channel_dim in
   let x_max = Tensor.maximum t in
   let amax_perc = dump_hist_to_file percentiles oc layer_name ttype x_max t in
   (* Mse *)
@@ -216,17 +220,15 @@ let get_names_and_tensors info_type data =
   List.filter names_and_tensors ~f:filter_float_tensors
 ;;
 
-let get_device device_id =
-  if Cuda.is_available () && device_id > 0 then Device.Cuda device_id else Device.Cpu
-;;
-
-let run_vsq_sim device_id _channel_dim dir_name info_type =
+let run_vsq_sim device_id channel_dim dir_name info_type =
   let files, ht = file_stats dir_name in
   let device = get_device device_id in
+  let channel_dim = get_channel_dim channel_dim in
   let process_tensors layer_name =
     Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
       let names_and_tensors = get_names_and_tensors info_type data in
-      Vsq.quantize device names_and_tensors;
+      let amax_type = Amax_type.from_channel_dim channel_dim in
+      Vsq.quantize device amax_type names_and_tensors ~bits:8;
       ())
   in
   List.(filter_map files ~f:(filter_by_info_type info_type) |> iter ~f:process_tensors)
