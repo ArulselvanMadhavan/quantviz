@@ -39,7 +39,7 @@ let write_header oc columns =
   write_row oc header
 ;;
 
-let mantissa_bits = [| 2;3;4;5|]
+let mantissa_bits = [| 2; 3; 4; 5 |]
 
 let fp_format m e =
   let m = Int.to_string m in
@@ -126,7 +126,8 @@ let write_histogram channel_dim device_id percentiles oc layer_name (ttype, t) =
     in
     let mses = List.map mses ~f:(calc_mse_row mb exp) in
     i := !i + 1;
-      Caml.Gc.full_major ();        (* To avoid GPU mem overflow when a long list of percentiles are computed *)
+    Caml.Gc.full_major ();
+    (* To avoid GPU mem overflow when a long list of percentiles are computed *)
     mses
   in
   List.(mse_results >>= mse_result_to_row)
@@ -197,7 +198,7 @@ let filter_layers_by_name fname =
   f [ "layer_norm"; "activation_fn"; "embed" ]
 ;;
 
-let handle_dir device_id channel_dim dir_name info_type percentiles =
+let file_stats dir_name =
   Stdio.printf "Is Cuda_avail:%b\n" (Cuda.is_available ());
   Stdio.Out_channel.flush Stdio.stdout;
   (* Select and filter files *)
@@ -207,7 +208,17 @@ let handle_dir device_id channel_dim dir_name info_type percentiles =
   let ht = Hashtbl.create ~size:(List.length files) (module String) in
   List.iter ~f:(load_tensors ht) files;
   let ht = Hashtbl.filter ht ~f:(fun v -> Hashtbl.mem v.layer_variables "weight") in
-  (* Compute and write to files *)
+  files, ht
+;;
+
+let run_vsq_sim _device_id _channel_dim dir_name _info_type =
+  let files, _ht = file_stats dir_name in
+  List.iter ~f:Stdio.print_string files;
+  ()
+;;
+
+let run_fp8_sim device_id channel_dim dir_name info_type percentiles =
+  let files, ht = file_stats dir_name in
   let hist_writer hist_oc calib_oc device_id =
     let process_tensors layer_name =
       Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
@@ -292,20 +303,20 @@ let percentile_arg =
     & info [] ~docv:"percentile list:[99.0,99.9,99.99]" ~doc)
 ;;
 
-let generate_cmd =
+let fp8_cmd =
   let doc = "Generate FP8 quantization errors" in
   let man =
     [ `S Manpage.s_description
     ; `P
-        "Read the input directory recursively for .ot files and generate simulation \
+        "Read the input directory recursively for .ot files and generate fp8 simulation \
          errors"
     ]
   in
-  let info = Cmd.info "generate" ~doc ~man in
+  let info = Cmd.info "fp8" ~doc ~man in
   Cmd.v
     info
     Term.(
-      const handle_dir
+      const run_fp8_sim
       $ device_arg
       $ channel_dim_arg
       $ dir_arg
@@ -313,12 +324,27 @@ let generate_cmd =
       $ percentile_arg)
 ;;
 
+let vsquant_cmd =
+  let doc = "Generate VS-Quant results" in
+  let man =
+    [ `S Manpage.s_description
+    ; `P
+        "Read the input directory recursively for .ot files and generate vsquant \
+         simulation errors"
+    ]
+  in
+  let info = Cmd.info "vsq" ~doc ~man in
+  Cmd.v
+    info
+    Term.(const run_vsq_sim $ device_arg $ channel_dim_arg $ dir_arg $ info_type_arg)
+;;
+
 let main_cmd =
   let doc = "Generate FP8 simulation evaluation" in
   let sdocs = Manpage.s_common_options in
   let info = Cmd.info "quantviz" ~version:"dev" ~doc ~sdocs ~man:help_sections in
   let default = Term.(ret (const (`Help (`Pager, None)))) in
-  Cmd.group info ~default [ generate_cmd ]
+  Cmd.group info ~default [ fp8_cmd; vsquant_cmd ]
 ;;
 
 let () = Stdlib.exit (Cmd.eval main_cmd)
