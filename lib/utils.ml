@@ -39,7 +39,7 @@ let layer_name_and_mem fname =
   let layer_name = segs.(lname_idx) in
   (* let artifacts_idx = Hashtbl.find_exn segs_ht "artifacts" in *)
   (* let model_name = segs.(artifacts_idx + 1) in *)
-  let info_type = segs.(lname_idx + 1) in
+  let info_type = segs.(lname_idx + 1) in  
   layer_name, info_type
 ;;
 
