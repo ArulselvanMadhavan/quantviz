@@ -14,7 +14,6 @@ let load_tensors ht filename =
   Hashtbl.update ht layer_name ~f:Layercontents.(update info_type contents)
 ;;
 
-let numel t = List.fold (Tensor.size t) ~init:1 ~f:Int.( * )
 let hist_columns = [ "layer_name"; "bin_start"; "bin_end"; "count"; "type_" ]
 let mantissa_bits = [| 2; 3; 4; 5 |]
 
@@ -39,7 +38,7 @@ let dump_hist_to_file percentiles oc layer_name ttype x_max t =
   (* xmax_percentile *)
   let amax_perc =
     Array.map percentiles ~f:(fun percentile ->
-      H.amax_percentile h_calib ~hist:counts ~numel:(numel t) ~percentile)
+      H.amax_percentile h_calib ~hist:counts ~numel:(Tensor_utils.numel t) ~percentile)
   in
   let bins = Tensor.to_float1_exn h_calib.calib_bin_edges in
   let counts = Tensor.to_float1_exn counts in
@@ -64,6 +63,7 @@ let write_histogram channel_dim device_id percentiles oc layer_name (ttype, t) =
     ; Float.to_string mse
     ; Float.to_string sqnr
     ; fp_format m e
+    ; Int.to_string (Tensor_utils.numel t * 4)
     ]
   in
   let device = get_device device_id in

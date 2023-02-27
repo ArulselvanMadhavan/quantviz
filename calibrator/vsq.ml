@@ -1,8 +1,6 @@
 open Torch
 open Base
 
-let numel = List.fold ~init:1 ~f:( * )
-
 let find_max t amax_type =
   let open Tensor in
   match amax_type with
@@ -52,7 +50,7 @@ let coarse_quant ?channel_dim device names_and_tensors ~bits =
     ( ttype
     , prefix ^ Int.to_string bits
     , Mse.calc_sqnr t xq meandims |> Tensor.to_float0_exn
-    , numel (T.shape scales) * 4 )
+    , Tensor_utils.numel scales * 4 )
   in
   List.map names_and_tensors ~f
 ;;
@@ -90,7 +88,7 @@ let fine_quant device names_and_tensors ~vsize ~n ~m =
     let g_k = T.(s_k / max_bound) in
     let s_q = T.(round (s_v / g_k)) in
     let xq2 = T.(xq * s_q * g_k) in
-    let scale_size = numel (T.shape s_q) + (numel (T.shape g_k) * 4) in
+    let scale_size = Tensor_utils.(numel s_q + (numel g_k * 4)) in
     let meandims = List.init (List.length (T.shape t)) ~f:Fn.id in
     ttype, format, Mse.calc_sqnr t xq2 meandims |> Tensor.to_float0_exn, scale_size
   in
