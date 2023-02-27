@@ -126,7 +126,4 @@ let build_rows lname results =
   List.map results ~f:build_row
 ;;
 
-let dump_rows oc rows =
-  Csv.write_header oc Csv.calib_columns;
-  Csv.write_calib oc (-1, rows)
-;;
+let dump_rows oc rows = Csv.write_calib oc (-1, rows)

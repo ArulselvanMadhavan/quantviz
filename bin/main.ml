@@ -211,10 +211,10 @@ let run_vsq_sim device_id channel_dim dir_name info_type vsizes tensor_bits scal
         quantize ?channel_dim device named_tensors ~vsizes ~tensor_bits ~scale_bits
         |> build_rows layer_name
         |> dump_rows oc);
-      Caml.Gc.full_major ();
-      )
+      Caml.Gc.full_major ())
   in
   let f oc _ =
+    Csv.write_header oc Csv.calib_columns;
     Bos_setup.R.return
       List.(
         filter_map files ~f:(filter_by_info_type info_type)
