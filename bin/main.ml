@@ -8,9 +8,7 @@ let num_bins = 2048
 
 let load_tensors ht filename =
   let contents = Serialize.load_all ~filename in
-  let layer_info = Quantviz.Utils.layer_name_and_mem filename in
-  let layer_name = List.hd_exn layer_info in
-  let info_type = List.last_exn layer_info in
+  let _, layer_name, info_type = Quantviz.Utils.layer_name_and_mem filename in
   Hashtbl.update ht layer_name ~f:Layercontents.(update info_type contents)
 ;;
 
@@ -146,14 +144,10 @@ let filter_float_tensors (_, t) =
 ;;
 
 let filter_by_info_type info_type filename =
-  let layer_info = Quantviz.Utils.layer_name_and_mem filename in
-  let layer_name = List.hd_exn layer_info in
-  let it = List.last_exn layer_info in
+  let model_name, layer_name, it = Quantviz.Utils.layer_name_and_mem filename in
   if String.equal info_type it
   then
-    (* Stdio.printf "%s\n" filename; *)
-    (* Stdio.Out_channel.flush Stdio.stdout; *)
-    Some layer_name
+    Some (model_name, layer_name)
   else None
 ;;
 

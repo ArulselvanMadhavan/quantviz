@@ -30,7 +30,18 @@ let rename_ext files ~ext =
 let layer_name_and_mem fname =
   let fname = Fpath.of_string fname in
   let segs = Fpath.segs (Result.get_ok fname) in
-  let segs = Base.List.drop_while segs ~f:(fun seg -> Base.String.(seg <> "layers")) in
-  let segs = List.tl segs in
-  Base.List.drop_last_exn segs
+  let open Base in
+  let segs = Array.of_list segs in
+  let segs_ht = Hashtbl.create ~size:(Array.length segs) (module String) in
+  Array.iteri segs ~f:(fun i n -> Hashtbl.update segs_ht n ~f:(fun _ -> i));
+  let layers_idx = Hashtbl.find_exn segs_ht "layers" in
+  let lname_idx = layers_idx + 1 in
+  let layer_name = segs.(lname_idx) in
+  let artifacts_idx = Hashtbl.find_exn segs_ht "artifacts" in
+  let model_name = segs.(artifacts_idx + 1) in
+  let info_type = segs.(lname_idx + 1) in
+  model_name, layer_name, info_type
+  (* let segs = Base.List.drop_while segs ~f:(fun seg -> String.(seg <> "layers")) in *)
+  (* let segs = List.tl segs in *)
+  (* Base.List.drop_last_exn segs *)
 ;;
