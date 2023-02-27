@@ -40,7 +40,7 @@ let layer_name_and_mem fname =
   Array.iter segs ~f:(Stdlib.Out_channel.output_string Stdlib.stdout);
   (* let artifacts_idx = Hashtbl.find_exn segs_ht "artifacts" in *)
   (* let model_name = segs.(artifacts_idx + 1) in *)
-  let info_type = segs.(lname_idx + 1) in  
+  let info_type = segs.(lname_idx + 1) in
   layer_name, info_type
 ;;
 

@@ -9,9 +9,9 @@ let num_bins = 2048
 let load_tensors ht filename =
   let contents = Serialize.load_all ~filename in
   let layer_name, info_type = Quantviz.Utils.layer_name_and_mem filename in
-  Stdio.printf "%s|%s\n" layer_name info_type;
-  Stdio__Out_channel.flush Stdio.stdout;
-  Hashtbl.update ht layer_name ~f:Layercontents.(update info_type contents)
+  if String.is_suffix info_type ~suffix:"ot"
+  then ()
+  else Hashtbl.update ht layer_name ~f:Layercontents.(update info_type contents)
 ;;
 
 let hist_columns = [ "layer_name"; "bin_start"; "bin_end"; "count"; "type_" ]
