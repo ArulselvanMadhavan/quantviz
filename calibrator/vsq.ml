@@ -102,7 +102,7 @@ let quantize ?channel_dim device names_and_tensors ~vsizes ~tensor_bits ~scale_b
   let f_sqnrs =
     let%bind vsize = vsizes in
     let%bind n = tensor_bits in
-        let%bind m = scale_bits in
+    let%bind m = scale_bits in
     fine_quant device names_and_tensors ~vsize ~n ~m
   in
   let c_sqnrs =
