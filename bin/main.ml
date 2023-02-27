@@ -232,7 +232,7 @@ let run_fp8_sim device_id channel_dim dir_name info_type percentiles =
   let hist_writer hist_oc calib_oc device_id =
     let process_tensors layer_name =
       Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
-        let names_and_tensors = get_names_and_tensors info_type data in
+        let named_tensors = get_names_and_tensors info_type data in
         write_csv
           hist_oc
           calib_oc
@@ -240,7 +240,7 @@ let run_fp8_sim device_id channel_dim dir_name info_type percentiles =
           channel_dim
           percentiles
           layer_name
-          names_and_tensors)
+          named_tensors)
     in
     List.(filter_map files ~f:(filter_by_info_type info_type) |> iter ~f:process_tensors)
   in
@@ -249,16 +249,15 @@ let run_fp8_sim device_id channel_dim dir_name info_type percentiles =
     let write_to_files hist_oc calib_oc _ =
       Csv.write_header hist_oc hist_columns;
       Csv.write_header calib_oc Csv.calib_columns;
-      Bos_setup.R.ok (handler hist_oc calib_oc device_id)
+      Bos_setup.R.return (handler hist_oc calib_oc device_id)
     in
     let open_calib_file hist_oc _ =
-      let _ =
-        Bos.OS.File.with_oc (csv_file (info_type ^ "_calib")) (write_to_files hist_oc) ()
-      in
-      Bos_setup.R.ok ()
+      Bos.OS.File.with_oc (csv_file (info_type ^ "_calib")) (write_to_files hist_oc) ()
     in
-    let _ = Bos.OS.File.with_oc (csv_file (info_type ^ "_hist")) open_calib_file () in
-    ()
+    Bos.OS.File.with_oc (csv_file (info_type ^ "_hist")) open_calib_file ()
+    |> Bos_setup.R.get_ok
+    |> Bos_setup.R.get_ok
+    |> Bos_setup.R.get_ok
   in
   open_files hist_writer
 ;;
@@ -329,7 +328,7 @@ let scale_bits_arg =
   Arg.(
     value
     & opt (list int) [ 6; 8; 10 ]
-    & info [ "sb" "scale_bits" ] ~docv:"SCALE_BITS:6,8,10" ~doc)
+    & info [ "sb"; "scale_bits" ] ~docv:"SCALE_BITS:6,8,10" ~doc)
 ;;
 
 let fp8_cmd =
