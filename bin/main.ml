@@ -8,7 +8,7 @@ let num_bins = 2048
 
 let load_tensors ht filename =
   let contents = Serialize.load_all ~filename in
-  let _, layer_name, info_type = Quantviz.Utils.layer_name_and_mem filename in
+  let layer_name, info_type = Quantviz.Utils.layer_name_and_mem filename in
   Hashtbl.update ht layer_name ~f:Layercontents.(update info_type contents)
 ;;
 
@@ -144,11 +144,8 @@ let filter_float_tensors (_, t) =
 ;;
 
 let filter_by_info_type info_type filename =
-  let model_name, layer_name, it = Quantviz.Utils.layer_name_and_mem filename in
-  if String.equal info_type it
-  then
-    Some (model_name, layer_name)
-  else None
+  let layer_name, it = Quantviz.Utils.layer_name_and_mem filename in
+  if String.equal info_type it then Some layer_name else None
 ;;
 
 let info_type_to_tensors info_type (lc : Layercontents.t) =
@@ -187,11 +184,13 @@ let get_names_and_tensors info_type data =
   List.filter names_and_tensors ~f:filter_float_tensors
 ;;
 
-let csv_file name =
+let csv_file model_name file_name =
   let data_dir = "data" in
   let fname = Option.value_exn (Result.ok (Fpath.of_string data_dir)) in
+  let fname = Fpath.add_seg fname model_name in
+  let fname = Fpath.add_seg fname "quant" in
   let _ = Bos.OS.Dir.create fname in
-  Fpath.add_seg fname name |> Fpath.add_ext "csv"
+  Fpath.add_seg fname file_name |> Fpath.add_ext "csv"
 ;;
 
 let run_vsq_sim device_id channel_dim dir_name info_type vsizes tensor_bits scale_bits =
@@ -216,7 +215,8 @@ let run_vsq_sim device_id channel_dim dir_name info_type vsizes tensor_bits scal
         filter_map files ~f:(filter_by_info_type info_type)
         |> iter ~f:(process_tensors oc))
   in
-  Bos.OS.File.with_oc (csv_file ("vsq_" ^ info_type ^ "_calib")) f ()
+  let model_name = Quantviz.Utils.model_name dir_name in
+  Bos.OS.File.with_oc (csv_file model_name ("vsq_" ^ info_type ^ "_calib")) f ()
   |> Bos_setup.R.get_ok
   |> Bos_setup.R.get_ok
 ;;
@@ -245,10 +245,17 @@ let run_fp8_sim device_id channel_dim dir_name info_type percentiles =
       Csv.write_header calib_oc Csv.calib_columns;
       Bos_setup.R.return (handler hist_oc calib_oc device_id)
     in
+    let model_name = Quantviz.Utils.model_name dir_name in
     let open_calib_file hist_oc _ =
-      Bos.OS.File.with_oc (csv_file (info_type ^ "_calib")) (write_to_files hist_oc) ()
+      Bos.OS.File.with_oc
+        (csv_file model_name ("fp8_" ^ info_type ^ "_calib"))
+        (write_to_files hist_oc)
+        ()
     in
-    Bos.OS.File.with_oc (csv_file (info_type ^ "_hist")) open_calib_file ()
+    Bos.OS.File.with_oc
+      (csv_file model_name ("fp8_" ^ info_type ^ "_hist"))
+      open_calib_file
+      ()
     |> Bos_setup.R.get_ok
     |> Bos_setup.R.get_ok
     |> Bos_setup.R.get_ok
