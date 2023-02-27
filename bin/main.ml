@@ -205,6 +205,8 @@ let run_vsq_sim device_id channel_dim dir_name info_type vsizes tensor_bits scal
   let device = get_device device_id in
   let channel_dim = get_channel_dim channel_dim in
   let process_tensors oc layer_name =
+    Stdio.printf "Layer:%s\n" layer_name;
+    Stdio.Out_channel.flush Stdio.stdout;
     Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
       let named_tensors = get_names_and_tensors info_type data in
       Vsq.(
