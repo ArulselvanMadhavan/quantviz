@@ -96,6 +96,8 @@ let write_histogram channel_dim device_id percentiles oc layer_name (ttype, t) =
   let mse_result_to_row maxval =
     let mb = mantissa_bits.(!i) in
     let exp = 7 - mb in
+    Stdio.printf "MSE result:%d|%d\n" mb exp;
+    Stdio.Out_channel.flush Stdio.stdout;
     let mses =
       Array.mapi percentiles ~f:(fun i percentile ->
         let amax_perc = amax_perc.(i) |> Tensor.of_float0 ~device in
@@ -204,18 +206,13 @@ let run_vsq_sim device_id channel_dim dir_name info_type vsizes tensor_bits scal
   let channel_dim = get_channel_dim channel_dim in
   let process_tensors layer_name =
     Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
-      let names_and_tensors = get_names_and_tensors info_type data in
+      let named_tensors = get_names_and_tensors info_type data in
       let f oc _ =
-        Vsq.quantize
-          ?channel_dim
-          device
-          names_and_tensors
-          ~vsizes
-          ~tensor_bits
-          ~scale_bits
-        |> Vsq.build_rows layer_name
-        |> Vsq.dump_rows oc
-        |> Bos_setup.R.return
+        Vsq.(
+          quantize ?channel_dim device named_tensors ~vsizes ~tensor_bits ~scale_bits
+          |> build_rows layer_name
+          |> dump_rows oc
+          |> Bos_setup.R.return)
       in
       let _ = Bos.OS.File.with_oc (csv_file ("vsq_" ^ info_type ^ "_calib")) f () in
       ())
