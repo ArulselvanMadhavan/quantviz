@@ -191,8 +191,6 @@ let get_names_and_tensors info_type data =
   List.filter names_and_tensors ~f:filter_float_tensors
 ;;
 
-let tensor_bits = 8
-
 let csv_file name =
   let data_dir = "data" in
   let fname = Option.value_exn (Result.ok (Fpath.of_string data_dir)) in
@@ -200,7 +198,7 @@ let csv_file name =
   Fpath.add_seg fname name |> Fpath.add_ext "csv"
 ;;
 
-let run_vsq_sim device_id channel_dim dir_name info_type vsize =
+let run_vsq_sim device_id channel_dim dir_name info_type vsizes tensor_bits scale_bits =
   let files, ht = file_stats dir_name in
   let device = get_device device_id in
   let channel_dim = get_channel_dim channel_dim in
@@ -208,7 +206,13 @@ let run_vsq_sim device_id channel_dim dir_name info_type vsize =
     Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
       let names_and_tensors = get_names_and_tensors info_type data in
       let f oc _ =
-        Vsq.quantize ?channel_dim device names_and_tensors ~bits:tensor_bits ~vsize
+        Vsq.quantize
+          ?channel_dim
+          device
+          names_and_tensors
+          ~vsizes
+          ~tensor_bits
+          ~scale_bits
         |> Vsq.build_rows layer_name
         |> Vsq.dump_rows oc
         |> Bos_setup.R.return
@@ -302,7 +306,18 @@ let percentile_arg =
 
 let vector_size_arg =
   let doc = "vector size" in
-  Arg.(required & pos 2 (some int) None & info [] ~docv:"VECTOR_SIZE" ~doc)
+  Arg.(
+    required & pos 2 (some (list int)) None & info [] ~docv:"VECTOR_SIZE:16,64,128" ~doc)
+;;
+
+let tensor_bits_arg =
+  let doc = "bits to use to quantize the tensor" in
+  Arg.(required & pos 3 (some (list int)) None & info [] ~docv:"tensor_bits:4,8" ~doc)
+;;
+
+let scale_bits_arg =
+  let doc = "bits to use to quantize the scale tensor" in
+  Arg.(required & pos 4 (some (list int)) None & info [] ~docv:"tensor_bits:6, 8,10" ~doc)
 ;;
 
 let fp8_cmd =
@@ -344,7 +359,9 @@ let vsquant_cmd =
       $ channel_dim_arg
       $ dir_arg
       $ info_type_arg
-      $ vector_size_arg)
+      $ vector_size_arg
+      $ tensor_bits_arg
+      $ scale_bits_arg)
 ;;
 
 let main_cmd =

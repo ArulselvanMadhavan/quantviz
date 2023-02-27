@@ -1,6 +1,8 @@
 open Torch
 open Base
 
+let numel = List.fold ~init:1 ~f:( * )
+
 let find_max t amax_type =
   let open Tensor in
   match amax_type with
@@ -21,12 +23,11 @@ let find_max t amax_type =
 ;;
 
 let build_format ~prefix ~vsize ~n ~m =
-  (* W=int8|V=64|S1=intm|S2=fp32*)
-  let tensor_format = prefix ^ "=" ^ Int.to_string n in
-  let vector_format = "V=" ^ Int.to_string vsize in
-  let s1_format = "S1=int" ^ Int.to_string m in
-  let s2_format = "S2=fp32" in
-  String.concat ~sep:"|" [ tensor_format; vector_format; s1_format; s2_format ]
+  let tensor_format = prefix ^ Int.to_string n in
+  let vector_format = "V" ^ Int.to_string vsize in
+  let s1_format = "S" ^ Int.to_string m in
+  let g_format = "G_fp32" in
+  String.concat ~sep:"|" [ vector_format; tensor_format; s1_format; g_format ]
 ;;
 
 let coarse_quant ?channel_dim device names_and_tensors ~bits =
@@ -40,11 +41,18 @@ let coarse_quant ?channel_dim device names_and_tensors ~bits =
     let amax_t = find_max t amax_type in
     let max_bound = T.pow two ~exponent:n_minus_1 in
     let scales = T.(amax_t / max_bound) in
-    T.print_shape scales;
     let intq = T.(round (t / scales)) in
     let xq = T.(intq * scales) in
     let meandims = List.init (List.length (T.shape t)) ~f:Fn.id in
-    ttype, "vsq_per_channel", Mse.calc_sqnr t xq meandims |> Tensor.to_float0_exn
+    let prefix =
+      match ttype with
+      | "weight" -> "W"
+      | _ -> "A"
+    in
+    ( ttype
+    , prefix ^ Int.to_string bits
+    , Mse.calc_sqnr t xq meandims |> Tensor.to_float0_exn
+    , numel (T.shape scales) * 4 )
   in
   List.map names_and_tensors ~f
 ;;
@@ -75,35 +83,47 @@ let fine_quant device names_and_tensors ~vsize ~n ~m =
     let t = T.view t ~size:tshape in
     let xmax_v, _ = T.max_dim t ~dim:vdim ~keepdim:true in
     let max_bound = T.pow two ~exponent:n_minus_1 in
-    T.print_shape ~name:"xmax_v" xmax_v;
-    T.print_shape ~name:"max_bound" xmax_v;
     let s_v = T.(xmax_v / max_bound) in
-    T.print_shape ~name:"s_v" s_v;
     let xq = T.(round (t / s_v)) in
-    T.print_shape ~name:"x_q" xq;
     let s_k, _ = T.max_dim s_v ~dim:cut_dim ~keepdim:true in
-    T.print_shape ~name:"s_k" s_k;
     let max_bound = T.pow two ~exponent:m_minus_1 in
     let g_k = T.(s_k / max_bound) in
     let s_q = T.(round (s_v / g_k)) in
     let xq2 = T.(xq * s_q * g_k) in
-    T.print_shape ~name:"s_q" s_q;
-    T.print_shape ~name:"g_k" g_k;
+    let scale_size = numel (T.shape s_q) + (numel (T.shape g_k) * 4) in
     let meandims = List.init (List.length (T.shape t)) ~f:Fn.id in
-    ttype, format, Mse.calc_sqnr t xq2 meandims |> Tensor.to_float0_exn
+    ttype, format, Mse.calc_sqnr t xq2 meandims |> Tensor.to_float0_exn, scale_size
   in
   List.map names_and_tensors ~f
 ;;
 
-let quantize ?channel_dim device names_and_tensors ~vsize ~bits =
-  let c_sqnrs = coarse_quant ?channel_dim device names_and_tensors ~bits in
-  let f_sqnrs = fine_quant device names_and_tensors ~vsize ~n:8 ~m:10 in
+let quantize ?channel_dim device names_and_tensors ~vsizes ~tensor_bits ~scale_bits =
+  let open List.Let_syntax in
+  let f_sqnrs =
+    let%bind vsize = vsizes in
+    let%bind n = tensor_bits in
+        let%bind m = scale_bits in
+    fine_quant device names_and_tensors ~vsize ~n ~m
+  in
+  let c_sqnrs =
+    let%bind bits = tensor_bits in
+    coarse_quant ?channel_dim device names_and_tensors ~bits
+  in
   c_sqnrs @ f_sqnrs
 ;;
 
 let build_rows lname results =
-  let build_row (ttype, format, sqnr) =
-    [ lname; ttype; format; "-1"; "-1"; "-1"; Float.to_string sqnr; format ]
+  let build_row (ttype, format, sqnr, scale_size) =
+    [ lname
+    ; ttype
+    ; format
+    ; "-1"
+    ; "-1"
+    ; "-1"
+    ; Float.to_string sqnr
+    ; format
+    ; Int.to_string scale_size
+    ]
   in
   List.map results ~f:build_row
 ;;

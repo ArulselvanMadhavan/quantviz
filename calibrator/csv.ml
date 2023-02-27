@@ -9,6 +9,7 @@ let calib_columns =
   ; "mse"
   ; "sqnr"
   ; "format"
+  ; "scale_size"
   ]
 ;;
 
