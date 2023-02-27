@@ -47,7 +47,7 @@ let model_name dir_name =
   let open Base in
   let segs = Array.of_list segs in
   let segs_ht = Hashtbl.create ~size:(Array.length segs) (module String) in
-    Array.iteri segs ~f:(fun i n -> Hashtbl.update segs_ht n ~f:(fun _ -> i));
+  Array.iteri segs ~f:(fun i n -> Hashtbl.update segs_ht n ~f:(fun _ -> i));
   let artifacts_idx = Hashtbl.find_exn segs_ht "artifacts" in
   let model_name = segs.(artifacts_idx + 1) in
   model_name
