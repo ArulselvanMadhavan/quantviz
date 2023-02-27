@@ -96,8 +96,6 @@ let write_histogram channel_dim device_id percentiles oc layer_name (ttype, t) =
   let mse_result_to_row maxval =
     let mb = mantissa_bits.(!i) in
     let exp = 7 - mb in
-    Stdio.printf "MSE result:%d|%d\n" mb exp;
-    Stdio.Out_channel.flush Stdio.stdout;
     let mses =
       Array.mapi percentiles ~f:(fun i percentile ->
         let amax_perc = amax_perc.(i) |> Tensor.of_float0 ~device in
