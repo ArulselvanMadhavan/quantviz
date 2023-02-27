@@ -1,12 +1,13 @@
 {
   "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "width":800,
   "data": {
     "format": {
       "type": "csv",
       "parse": {"amax_value": "number", "mse": "number", "sqnr": "number"}
     },
     "name": "calib",
-    "url": "data/replace_me_calib.csv"
+    "url": "data/vsq_layer_variables_calib.csv"
   },
   "transform": [
     {
@@ -16,12 +17,12 @@
   ],
   "mark": "line",
   "encoding": {
-      "x": {"field": "layer_name", "type": "ordinal", "sort":null},
+    "x": {"field": "layer_name", "type": "ordinal", "sort": null},
     "y": {"field": "mean_sqnr", "type": "quantitative"},
     "color": {
       "field": "amax_type",
       "type": "nominal",
-      "legend": {"orient": "top"}
+      "legend": {"orient": "top", "columns":4}
     },
     "tooltip": [
       {"field": "amax_type", "type": "nominal"},
