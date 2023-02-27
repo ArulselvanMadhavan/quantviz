@@ -204,20 +204,25 @@ let run_vsq_sim device_id channel_dim dir_name info_type vsizes tensor_bits scal
   let files, ht = file_stats dir_name in
   let device = get_device device_id in
   let channel_dim = get_channel_dim channel_dim in
-  let process_tensors layer_name =
+  let process_tensors oc layer_name =
     Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
       let named_tensors = get_names_and_tensors info_type data in
-      let f oc _ =
-        Vsq.(
-          quantize ?channel_dim device named_tensors ~vsizes ~tensor_bits ~scale_bits
-          |> build_rows layer_name
-          |> dump_rows oc
-          |> Bos_setup.R.return)
-      in
-      let _ = Bos.OS.File.with_oc (csv_file ("vsq_" ^ info_type ^ "_calib")) f () in
-      ())
+      Vsq.(
+        quantize ?channel_dim device named_tensors ~vsizes ~tensor_bits ~scale_bits
+        |> build_rows layer_name
+        |> dump_rows oc);
+      Caml.Gc.full_major ();
+      )
   in
-  List.(filter_map files ~f:(filter_by_info_type info_type) |> iter ~f:process_tensors)
+  let f oc _ =
+    Bos_setup.R.return
+      List.(
+        filter_map files ~f:(filter_by_info_type info_type)
+        |> iter ~f:(process_tensors oc))
+  in
+  Bos.OS.File.with_oc (csv_file ("vsq_" ^ info_type ^ "_calib")) f ()
+  |> Bos_setup.R.get_ok
+  |> Bos_setup.R.get_ok
 ;;
 
 let run_fp8_sim device_id channel_dim dir_name info_type percentiles =
