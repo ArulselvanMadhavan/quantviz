@@ -16,29 +16,6 @@ let load_tensors ht filename =
 
 let numel t = List.fold (Tensor.size t) ~init:1 ~f:Int.( * )
 let hist_columns = [ "layer_name"; "bin_start"; "bin_end"; "count"; "type_" ]
-
-let calib_columns =
-  [ "layer_name"
-  ; "type_"
-  ; "amax_type"
-  ; "amax_start"
-  ; "amax_end"
-  ; "mse"
-  ; "sqnr"
-  ; "format"
-  ]
-;;
-
-let write_row oc row =
-  Stdio.Out_channel.output_string oc row;
-  Stdio.Out_channel.output_char oc '\n'
-;;
-
-let write_header oc columns =
-  let header = String.concat ~sep:"," columns in
-  write_row oc header
-;;
-
 let mantissa_bits = [| 2; 3; 4; 5 |]
 
 let fp_format m e =
@@ -72,7 +49,7 @@ let dump_hist_to_file percentiles oc layer_name ttype x_max t =
     let count = Float.to_string count in
     let row = [ layer_name; bin_start; bin_end; count; ttype ] in
     let row = String.concat ~sep:"," row in
-    write_row oc row);
+    Csv.write_row oc row);
   amax_perc
 ;;
 
@@ -130,17 +107,11 @@ let write_histogram channel_dim device_id percentiles oc layer_name (ttype, t) =
     in
     let mses = List.map mses ~f:(calc_mse_row mb exp) in
     i := !i + 1;
-    Caml.Gc.full_major ();
     (* To avoid GPU mem overflow when a long list of percentiles are computed *)
+    Caml.Gc.full_major ();
     mses
   in
   List.(mse_results >>= mse_result_to_row)
-;;
-
-let write_calib calib_oc (_, calib_stats) =
-  List.iter calib_stats ~f:(fun xs ->
-    let row = String.concat ~sep:"," xs in
-    write_row calib_oc row)
 ;;
 
 let write_csv
@@ -162,7 +133,7 @@ let write_csv
   in
   (* write calib stats *)
   let zipped_stats = List.zip_exn names_and_tensors calib_stats in
-  let _ = List.(zipped_stats >>| write_calib calib_oc) in
+  let _ = List.(zipped_stats >>| Csv.write_calib calib_oc) in
   ()
 ;;
 
@@ -220,15 +191,29 @@ let get_names_and_tensors info_type data =
   List.filter names_and_tensors ~f:filter_float_tensors
 ;;
 
-let run_vsq_sim device_id channel_dim dir_name info_type =
+let tensor_bits = 8
+
+let csv_file name =
+  let data_dir = "data" in
+  let fname = Option.value_exn (Result.ok (Fpath.of_string data_dir)) in
+  let _ = Bos.OS.Dir.create fname in
+  Fpath.add_seg fname name |> Fpath.add_ext "csv"
+;;
+
+let run_vsq_sim device_id channel_dim dir_name info_type vsize =
   let files, ht = file_stats dir_name in
   let device = get_device device_id in
   let channel_dim = get_channel_dim channel_dim in
   let process_tensors layer_name =
     Option.fold (Hashtbl.find ht layer_name) ~init:() ~f:(fun _ data ->
       let names_and_tensors = get_names_and_tensors info_type data in
-      let amax_type = Amax_type.from_channel_dim channel_dim in
-      Vsq.quantize device amax_type names_and_tensors ~bits:8;
+      let f oc _ =
+        Vsq.quantize ?channel_dim device names_and_tensors ~bits:tensor_bits ~vsize
+        |> Vsq.build_rows layer_name
+        |> Vsq.dump_rows oc
+        |> Bos_setup.R.return
+      in
+      let _ = Bos.OS.File.with_oc (csv_file ("vsq_" ^ info_type ^ "_calib")) f () in
       ())
   in
   List.(filter_map files ~f:(filter_by_info_type info_type) |> iter ~f:process_tensors)
@@ -252,14 +237,10 @@ let run_fp8_sim device_id channel_dim dir_name info_type percentiles =
     List.(filter_map files ~f:(filter_by_info_type info_type) |> iter ~f:process_tensors)
   in
   (* Create file handlers *)
-  let data_dir = "data" in
-  let fname = Option.value_exn (Result.ok (Fpath.of_string data_dir)) in
-  let _ = Bos.OS.Dir.create fname in
-  let csv_file name = Fpath.add_seg fname name |> Fpath.add_ext "csv" in
   let open_files handler =
     let write_to_files hist_oc calib_oc _ =
-      write_header hist_oc hist_columns;
-      write_header calib_oc calib_columns;
+      Csv.write_header hist_oc hist_columns;
+      Csv.write_header calib_oc Csv.calib_columns;
       Bos_setup.R.ok (handler hist_oc calib_oc device_id)
     in
     let open_calib_file hist_oc _ =
@@ -319,6 +300,11 @@ let percentile_arg =
     & info [] ~docv:"percentile list:[99.0,99.9,99.99]" ~doc)
 ;;
 
+let vector_size_arg =
+  let doc = "vector size" in
+  Arg.(required & pos 2 (some int) None & info [] ~docv:"VECTOR_SIZE" ~doc)
+;;
+
 let fp8_cmd =
   let doc = "Generate FP8 quantization errors" in
   let man =
@@ -352,7 +338,13 @@ let vsquant_cmd =
   let info = Cmd.info "vsq" ~doc ~man in
   Cmd.v
     info
-    Term.(const run_vsq_sim $ device_arg $ channel_dim_arg $ dir_arg $ info_type_arg)
+    Term.(
+      const run_vsq_sim
+      $ device_arg
+      $ channel_dim_arg
+      $ dir_arg
+      $ info_type_arg
+      $ vector_size_arg)
 ;;
 
 let main_cmd =

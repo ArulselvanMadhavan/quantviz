@@ -9,24 +9,106 @@ let find_max t amax_type =
     let xs = split t ~split_size:1 ~dim |> List.map ~f:maximum in
     let xs = List.map xs ~f:(Tensor.unsqueeze ~dim:0) in
     stack xs ~dim
+  | Amax_type.Vector size ->
+    let s = shape t in
+    let c = List.last_exn s in
+    let j = Int.(c / size) in
+    let s = List.drop_last_exn s in
+    let s = List.append s [ j; -1 ] in
+    let t = reshape t ~shape:s in
+    let values, _ = max_dim t ~dim:(-2) ~keepdim:false in
+    values
 ;;
 
-let quantize device amax_type names_and_tensors ~bits =
+let build_format ~prefix ~vsize ~n ~m =
+  (* W=int8|V=64|S1=intm|S2=fp32*)
+  let tensor_format = prefix ^ "=" ^ Int.to_string n in
+  let vector_format = "V=" ^ Int.to_string vsize in
+  let s1_format = "S1=int" ^ Int.to_string m in
+  let s2_format = "S2=fp32" in
+  String.concat ~sep:"|" [ tensor_format; vector_format; s1_format; s2_format ]
+;;
+
+let coarse_quant ?channel_dim device names_and_tensors ~bits =
   let module T = Tensor in
   let two = T.of_int0 ~device 2 in
   let n_minus_1 = T.of_int0 ~device Int.(bits - 1) in
-  let f (_ttype, t) =
+  let amax_type = Amax_type.from_channel_dim channel_dim in
+  let f (ttype, t) =
     let t = T.to_ t ~device in
     let t = T.abs_ t in
     let amax_t = find_max t amax_type in
     let max_bound = T.pow two ~exponent:n_minus_1 in
     let scales = T.(amax_t / max_bound) in
+    T.print_shape scales;
     let intq = T.(round (t / scales)) in
     let xq = T.(intq * scales) in
     let meandims = List.init (List.length (T.shape t)) ~f:Fn.id in
-    Mse.calc_sqnr t xq meandims
+    ttype, "vsq_per_channel", Mse.calc_sqnr t xq meandims |> Tensor.to_float0_exn
   in
-  let mses = List.map names_and_tensors ~f in
-  List.iter mses ~f:T.print;
-  ()
+  List.map names_and_tensors ~f
+;;
+
+let fine_quant device names_and_tensors ~vsize ~n ~m =
+  let m = m in
+  let module T = Tensor in
+  let two = T.of_int0 ~device 2 in
+  let n_minus_1 = T.of_int0 ~device Int.(n - 1) in
+  let m_minus_1 = T.of_int0 ~device Int.(m - 1) in
+  let f (ttype, t) =
+    let t = T.to_ ~device t in
+    let t = T.abs_ t in
+    let ndim = List.length (T.shape t) - 1 in
+    let format, vdim, cut_dim =
+      match ttype with
+      | "weight" -> build_format ~prefix:"W" ~vsize ~n ~m, ndim + 2, ndim + 1
+      | _ -> build_format ~prefix:"A" ~vsize ~n ~m, ndim + 1, ndim + 2
+    in
+    let vdim = vdim - 1 in
+    let cut_dim = cut_dim - 1 in
+    (* Replace last dim with 2 dims. So, Subtract 1 dim *)
+    let tshape = T.shape t in
+    let dims = [| -1; -1 |] in
+    dims.(vdim - ndim) <- vsize;
+    let tshape = List.drop_last_exn tshape in
+    let tshape = List.append tshape (Array.to_list dims) in
+    let t = T.view t ~size:tshape in
+    let xmax_v, _ = T.max_dim t ~dim:vdim ~keepdim:true in
+    let max_bound = T.pow two ~exponent:n_minus_1 in
+    T.print_shape ~name:"xmax_v" xmax_v;
+    T.print_shape ~name:"max_bound" xmax_v;
+    let s_v = T.(xmax_v / max_bound) in
+    T.print_shape ~name:"s_v" s_v;
+    let xq = T.(round (t / s_v)) in
+    T.print_shape ~name:"x_q" xq;
+    let s_k, _ = T.max_dim s_v ~dim:cut_dim ~keepdim:true in
+    T.print_shape ~name:"s_k" s_k;
+    let max_bound = T.pow two ~exponent:m_minus_1 in
+    let g_k = T.(s_k / max_bound) in
+    let s_q = T.(round (s_v / g_k)) in
+    let xq2 = T.(xq * s_q * g_k) in
+    T.print_shape ~name:"s_q" s_q;
+    T.print_shape ~name:"g_k" g_k;
+    let meandims = List.init (List.length (T.shape t)) ~f:Fn.id in
+    ttype, format, Mse.calc_sqnr t xq2 meandims |> Tensor.to_float0_exn
+  in
+  List.map names_and_tensors ~f
+;;
+
+let quantize ?channel_dim device names_and_tensors ~vsize ~bits =
+  let c_sqnrs = coarse_quant ?channel_dim device names_and_tensors ~bits in
+  let f_sqnrs = fine_quant device names_and_tensors ~vsize ~n:8 ~m:10 in
+  c_sqnrs @ f_sqnrs
+;;
+
+let build_rows lname results =
+  let build_row (ttype, format, sqnr) =
+    [ lname; ttype; format; "-1"; "-1"; "-1"; Float.to_string sqnr; format ]
+  in
+  List.map results ~f:build_row
+;;
+
+let dump_rows oc rows =
+  Csv.write_header oc Csv.calib_columns;
+  Csv.write_calib oc (-1, rows)
 ;;
