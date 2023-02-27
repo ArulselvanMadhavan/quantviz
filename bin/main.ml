@@ -303,25 +303,33 @@ let info_type_arg =
 let percentile_arg =
   let doc = "percentiles" in
   Arg.(
-    required
-    & pos 2 (some (array float)) None
-    & info [] ~docv:"percentile list:[99.0,99.9,99.99]" ~doc)
+    value
+    & opt (array float) [| 99.0; 99.9; 99.99 |]
+    & info [ "p"; "percentiles" ] ~docv:"PERCENTILES:99.0,99.9,99.99" ~doc)
 ;;
 
 let vector_size_arg =
   let doc = "vector size" in
   Arg.(
-    required & pos 2 (some (list int)) None & info [] ~docv:"VECTOR_SIZE:16,64,128" ~doc)
+    value
+    & opt (list int) [ 16; 64; 128 ]
+    & info [ "v"; "vector_sizes" ] ~docv:"VECTOR_SIZE:16,64,128" ~doc)
 ;;
 
 let tensor_bits_arg =
   let doc = "bits to use to quantize the tensor" in
-  Arg.(required & pos 3 (some (list int)) None & info [] ~docv:"tensor_bits:4,8" ~doc)
+  Arg.(
+    value
+    & opt (list int) [ 4; 8 ]
+    & info [ "tb"; "bits_to_quantize" ] ~docv:"TENSOR_BITS:4,8" ~doc)
 ;;
 
 let scale_bits_arg =
   let doc = "bits to use to quantize the scale tensor" in
-  Arg.(required & pos 4 (some (list int)) None & info [] ~docv:"tensor_bits:6, 8,10" ~doc)
+  Arg.(
+    value
+    & opt (list int) [ 6; 8; 10 ]
+    & info [ "sb" "scale_bits" ] ~docv:"SCALE_BITS:6,8,10" ~doc)
 ;;
 
 let fp8_cmd =
