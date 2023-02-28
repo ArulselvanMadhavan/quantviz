@@ -1,0 +1,73 @@
+* Quantviz
+Quantviz is a tool that runs different quantization simulations and
+produces results as a csv file which can be viewed wih a visualization
+tool
+
+** Supported Quantization techniques
+- FP8 (Ideas taken from [[https://arxiv.org/pdf/2208.09225.pdf][FP8 simulation - Qualcomm]])
+- VS-Quant (Ideas taken from [[https://arxiv.org/pdf/2102.04503.pdf][Nvidia]])
+
+** Requirements
+- The tool requires that the tensor that have to be subjected to
+  quantization simulation are saved in "ot" files. If you have "pt"
+  you can run the executables - "pt_to_npz" and "npz_to_ot" to convert
+  them to "ot" files
+
+#+begin_src bash
+dune exec pt_to_npz
+dune exec npz_to_ot
+#+end_src
+
+** How to run the quantviz simulation?
+- In the example below
+  - Weights are saved as "layer_variables.ot" tensors
+  - Inputs are saved as "inputs.ot" tensors
+*** FP8
+- Runs calibration using tensor_max, 99.9 percentile, 99.99 percentile, optimal calibration finding using MSE(Mean Squared Error)
+- Finds the calibration point that gives the lowest MSE
+- In per-channel quantization,
+  - The same steps listed above are done but for each channel there is
+    a different calibration point for quantization
+- You can change the defaults by passing command line arguments. You
+  can see the available command line arguments by using "--help" on
+  the executable.
+- FP8 formats investigated: M5E2, M4E3, M3E4, M2E5
+#+begin_src bash
+# Uses per-channel quantization for weight tensors
+dune exec quantviz -- fp8 data/artifacts/opt125m/fp32/layers layer_variables -c 1
+#+end_src
+#+begin_src bash
+# Uses per-tensor quantization for input tensors
+dune exec quantviz -- fp8 data/arul/data/artifacts/opt125m/fp32/layers inputs
+#+end_src
+*** VS-Quant
+- There is a two level scaling implementation just as the paper describes.
+- Vector sizes sweeped by default are: 16, 64, 128
+- Level 1 Quantization bitwidths sweeped are: 4, 8
+- Level 2 Quantization bitwidths sweeped are: 6, 10
+- For weight tensors, you can enable per-channel quantization by
+  passing the channel dimension with "-c <cdim"
+#+begin_src bash
+# input tensor
+dune exec quantviz -- vsq data/arul/data/artifacts/opt125m/fp32/layers inputs
+# weight tensor
+dune exec quantviz -- vsq /nfs/nomster/data/arul/data/artifacts/opt125m/fp32/layers layer_variables -c 1
+#+end_src
+*** Cuda support
+You can place the tensor on CUDA and run the tool. The CUDA device to
+place the tensor on can be passed using "-d" option. If no argument is
+passed, the tensor will be kept on CPU for the simulations
+*** Visualizations
+I like using vega-lite. So, I have made the vega-lite recipes
+available. You can use `vega-export` command line tool to generate a
+visualization to look at the generated csv file. 
+**** FP8 Visualizations
+These were generated on OPT-125m. Input tensor used per-tensor
+ calibrations. Weight tensors used per-channel calibrations.
+ [[./images/FP8_inputs.png]]
+ [[./images/FP8_weights.png]]
+ [[./images/FP8_SQNR.png]]
+ [[./images/FP8_SQNR_weights.png]]
+**** VS-Quant visualizations
+[[./images/VSQ_SQNR_inputs.png]]
+[[./images/VSQ_weights.png]]
