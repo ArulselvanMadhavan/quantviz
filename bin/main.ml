@@ -38,7 +38,7 @@ let dump_hist_to_file percentiles oc layer_name ttype x_max t =
   (* xmax_percentile *)
   let amax_perc =
     Array.map percentiles ~f:(fun percentile ->
-      H.amax_percentile h_calib ~hist:counts ~numel:(Tensor_utils.numel t) ~percentile)
+      H.amax_percentile h_calib ~hist:counts ~percentile)
   in
   let bins = Tensor.to_float1_exn h_calib.calib_bin_edges in
   let counts = Tensor.to_float1_exn counts in

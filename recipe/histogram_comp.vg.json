@@ -176,7 +176,7 @@
               "strokeDash": {"value": [8, 4]},
               "stroke": {"scale": "color", "field": "amax_type"},
               "tooltip": {
-                "signal": "{\"amax_end\": format(datum[\"amax_end\"], \"\"), \"mse\": format(datum[\"mse\"], \"\"),\"amax_start\": format(datum[\"amax_start\"], \"\")}"
+                "signal": "{\"amax_end\": format(datum[\"amax_end\"], \"\"), \"mse\": format(datum[\"mse\"], \"\"),\"amax_start\": format(datum[\"amax_start\"], \"\"),\"amax_type\":datum[\"amax_type\"]}"
               },
               "description": {
                 "signal": "\"amax_end: \" + (format(datum[\"amax_end\"], \"\")) + \"; amax_type: \" + (isValid(datum[\"amax_type\"]) ? datum[\"amax_type\"] : \"\"+datum[\"amax_type\"])"
@@ -203,7 +203,7 @@
               "angle": {"value": 90},
               "fill": {"scale": "color", "field": "amax_type"},
               "tooltip": {
-                "signal": "{\"amax_end\": format(datum[\"amax_end\"], \"\"),\"amax_start\": format(datum[\"amax_start\"], \"\"), \"mse\":format(datum[\"mse\"], \"\"),\"format\":datum[\"format\"]}"
+                "signal": "{\"amax_end\": format(datum[\"amax_end\"], \"\"),\"amax_start\": format(datum[\"amax_start\"], \"\"), \"mse\":format(datum[\"mse\"], \"\"),\"format\":datum[\"format\"], \"amax_type\":datum[\"amax_type\"]}"
               },
               "description": {
                 "signal": "\"amax_end: \" + (format(datum[\"amax_end\"], \"\")) + \"; amax_type: \" + (isValid(datum[\"amax_type\"]) ? datum[\"amax_type\"] : \"\"+datum[\"amax_type\"])"

@@ -20,8 +20,9 @@ let make_t ~num_bins ~x_max =
 
 let collect t x = Tensor.histc x ~bins:t.num_bins
 
-let amax_percentile t ~hist ~numel ~percentile =
-  let hist = Tensor.div_scalar hist (Scalar.i numel) in
+let amax_percentile t ~hist ~percentile =
+  let hist = Tensor.div hist (Tensor.sum hist) in
+  (* let hist = Tensor.div_scalar hist (Scalar.i numel) in *)
   let cdf = Tensor.cumsum hist ~dim:0 ~dtype:(Tensor.kind hist) in
   let idx =
     Tensor.searchsorted
