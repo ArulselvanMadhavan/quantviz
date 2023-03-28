@@ -246,14 +246,15 @@ let run_fp8_sim device_id channel_dim dir_name info_type percentiles =
       Bos_setup.R.return (handler hist_oc calib_oc device_id)
     in
     let model_name = Quantviz.Utils.model_name dir_name in
+    let file_name = if String.equal info_type "layer_variables" then "weights" else info_type in
     let open_calib_file hist_oc _ =
       Bos.OS.File.with_oc
-        (csv_file model_name ("fp8_" ^ info_type ^ "_calib"))
+        (csv_file model_name ("fp8_" ^ file_name ^ "_calib"))
         (write_to_files hist_oc)
         ()
     in
     Bos.OS.File.with_oc
-      (csv_file model_name ("fp8_" ^ info_type ^ "_hist"))
+      (csv_file model_name ("fp8_" ^ file_name ^ "_hist"))
       open_calib_file
       ()
     |> Bos_setup.R.get_ok
