@@ -151,7 +151,7 @@ let filter_by_info_type info_type filename =
 let info_type_to_tensors info_type (lc : Layercontents.t) =
   match info_type with
   | "inputs" -> [ info_type, Hashtbl.find_exn lc.inputs "0" ]
-  | "output" -> [ info_type, Hashtbl.find_exn lc.outputs "0" ]
+  | "outputs" -> [ info_type, Hashtbl.find_exn lc.outputs "0" ]
   | "layer_variables" -> [ "weight", Hashtbl.find_exn lc.layer_variables "weight" ]
   | _ -> []
 ;;
