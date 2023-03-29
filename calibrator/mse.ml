@@ -2,7 +2,7 @@ open Base
 open Torch
 (* Assumes only positive values *)
 
-let maxval_span_length = 111
+let maxval_span_length = 1    (* calibration lookup points *)
 
 let quantize_to_fp8 ?channel_dim t maxval ~num_mantissa_bits =
   let open Tensor in
@@ -63,7 +63,7 @@ let calc_linspaces ?channel_dim t =
   let mul_factor x_max mul = Scalar.f (mul *. x_max) in
   let linspace (t, x_max) =
     Tensor.linspace
-      ~start:(mul_factor x_max 0.1)
+      ~start:(mul_factor x_max 1.0) (*  *)
       ~end_:(mul_factor x_max 1.0)
       ~steps:maxval_span_length
       ~options:Tensor.(kind t, device t)
