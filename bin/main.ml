@@ -385,4 +385,6 @@ let main_cmd =
   Cmd.group info ~default [ fp8_cmd; vsquant_cmd ]
 ;;
 
-let () = Stdlib.exit (Cmd.eval main_cmd)
+let () =
+  Qpt.C.Function.print_int 42;
+  Stdlib.exit (Cmd.eval main_cmd)

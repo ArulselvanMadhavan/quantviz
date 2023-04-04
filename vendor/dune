@@ -1,5 +1,5 @@
 (library
- (name qpytorch) 
+ (name qpt)
  (install_c_headers quantcpu)
  (foreign_archives quantcpu)
  (flags
@@ -9,7 +9,7 @@
   (deps libquantcpu.h dllquantcpu.so libquantcpu.a)
   (build_flags_resolver
    (vendored
-    (c_flags -I lib -I . -std=c99 -O3 -lm)))
+    (c_flags -I vendor -I . -std=c99 -O3 -lm (:standard -fPIC))))
   (headers
    (include "libquantcpu.h"))
   (type_description
@@ -35,7 +35,7 @@
   (no-infer
    (progn
     (chdir
-     QpyTorch
+     qpt/
      (progn
       (run cmake -B build -S .)
       (chdir
@@ -45,4 +45,4 @@
          (run make quantcpu_shared)))))
     (copy qpt/build/libquantcpu_static.a libquantcpu.a)
     (copy qpt/build/libquantcpu_shared.so dllquantcpu.so)
-    (copy qpt/build/libquantcpu.h libquantcpu.h)))))
+    (copy qpt/include/libquantcpu.h libquantcpu.h)))))
