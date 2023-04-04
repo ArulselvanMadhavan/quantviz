@@ -1,0 +1,6 @@
+[submodule "QpyTorch"]
+	path = QpyTorch
+	url = https://github.com/Tiiiger/QPyTorch.git
+[submodule "vendor/QpyTorch"]
+	path = vendor/QpyTorch
+	url = https://github.com/Tiiiger/QPyTorch.git

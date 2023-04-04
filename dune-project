@@ -1,4 +1,5 @@
 (lang dune 3.6)
+(using ctypes 0.2)
 
 (name quantviz)
 
