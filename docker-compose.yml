@@ -33,8 +33,8 @@ services:
         target: /etc/shadow
         read_only: true
       - type: bind
-        source: /nfs/nomster/data/arul/data/artifacts/opt125m/fp32/layers/
-        target: /nfs/nomster/data/arul/data/artifacts/opt125m/fp32/layers/
+        source: /nfs/nomster/data/arul/data/artifacts/
+        target: /nfs/nomster/data/arul/data/artifacts/
         read_only: false
     user: ${CURRENT_UID}:${CURRENT_GID}
     ports:
