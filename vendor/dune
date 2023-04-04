@@ -1,0 +1,48 @@
+(library
+ (name qpytorch) 
+ (install_c_headers quantcpu)
+ (foreign_archives quantcpu)
+ (flags
+  (:standard -w -9-27))
+ (ctypes
+  (external_library_name libquantcpu)
+  (deps libquantcpu.h dllquantcpu.so libquantcpu.a)
+  (build_flags_resolver
+   (vendored
+    (c_flags -I lib -I . -std=c99 -O3 -lm)))
+  (headers
+   (include "libquantcpu.h"))
+  (type_description
+   (instance Type)
+   (functor Type_description))
+  (function_description
+   (concurrency unlocked)
+   (instance Function)
+   (functor Function_description))
+  (generated_types Types_generated)
+  (generated_entry_point C))
+ (libraries ctypes.foreign)
+ (preprocess
+  (pps ppx_jane)))
+
+(data_only_dirs qpt)
+
+(rule
+ (deps
+  (source_tree qpt))
+ (targets libquantcpu.a dllquantcpu.so libquantcpu.h)
+ (action
+  (no-infer
+   (progn
+    (chdir
+     QpyTorch
+     (progn
+      (run cmake -B build -S .)
+      (chdir
+       build
+        (progn
+         (run make quantcpu_static)
+         (run make quantcpu_shared)))))
+    (copy qpt/build/libquantcpu_static.a libquantcpu.a)
+    (copy qpt/build/libquantcpu_shared.so dllquantcpu.so)
+    (copy qpt/build/libquantcpu.h libquantcpu.h)))))
