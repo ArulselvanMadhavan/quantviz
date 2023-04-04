@@ -170,7 +170,7 @@ let file_stats dir_name =
   Stdio.printf "Is Cuda_avail:%b\n" (Cuda.is_available ());
   Stdio.Out_channel.flush Stdio.stdout;
   (* Select and filter files *)
-  let files = Quantviz.Utils.dir_contents dir_name ~ext:"ot" in
+  let files = Quantviz.Utils.dir_contents dir_name ~ext:"pt" in
   let files = List.rev files in
   let files = List.filter files ~f:filter_layers_by_name in
   let ht = Hashtbl.create ~size:(List.length files) (module String) in
@@ -276,7 +276,7 @@ let help_sections =
 ;;
 
 let dir_arg =
-  let doc = "Directory containing .ot files" in
+  let doc = "Directory containing .pt files" in
   Arg.(required & pos 0 (some string) None & info [] ~docv:"DIRECTORY" ~doc)
 ;;
 
@@ -338,7 +338,7 @@ let fp8_cmd =
   let man =
     [ `S Manpage.s_description
     ; `P
-        "Read the input directory recursively for .ot files and generate fp8 simulation \
+        "Read the input directory recursively for .pt files and generate fp8 simulation \
          errors"
     ]
   in
@@ -359,7 +359,7 @@ let vsquant_cmd =
   let man =
     [ `S Manpage.s_description
     ; `P
-        "Read the input directory recursively for .ot files and generate vsquant \
+        "Read the input directory recursively for .pt files and generate vsquant \
          simulation errors"
     ]
   in
