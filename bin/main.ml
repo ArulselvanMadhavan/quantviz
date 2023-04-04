@@ -7,7 +7,7 @@ open Cmdliner
 let num_bins = 2048
 
 let load_tensors ht filename =
-  let contents = Serialize.load_all ~filename in
+  let contents = Serialize.load_all_pt ~filename in
   let layer_name, info_type = Quantviz.Utils.layer_name_and_mem filename in
   if String.is_suffix info_type ~suffix:"pt"
   then ()
