@@ -6,6 +6,6 @@ module Functions (F : Ctypes.FOREIGN) = struct
 
   open F
       
-  let print_int = foreign "print_int" (int @-> returning void)
+  let print_int = foreign "print_tensor" (int @-> returning void)
       
 end

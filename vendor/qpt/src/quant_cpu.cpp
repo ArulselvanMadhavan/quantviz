@@ -2,6 +2,9 @@
 #include <torch/torch.h>
 #include <iostream>
 
-void print_int(int num) {
-  std::cout << num << "\n";
+void at_print(tensor t) {
+  PROTECT(
+    torch::Tensor *tensor = (torch::Tensor*)t;
+    cout << *tensor << endl;
+  )
 }
