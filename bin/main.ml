@@ -386,5 +386,4 @@ let main_cmd =
 ;;
 
 let () =
-  Qpt.C.Function.print_shape 42;
   Stdlib.exit (Cmd.eval main_cmd)

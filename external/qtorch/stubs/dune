@@ -1,0 +1,3 @@
+(executables
+  (names qtorch_gen)
+  (libraries ctypes.stubs torch))
