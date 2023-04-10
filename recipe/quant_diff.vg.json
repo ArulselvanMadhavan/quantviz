@@ -1,0 +1,16 @@
+{
+  "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
+  "repeat": ["E5M2", "E4M3", "E3M4", "VSQ"],
+  "columns": 2,
+  "spec": {
+    "data": {
+      "values": [{"value": 0.5, "count": 10, "origin": "same", "type_": "E5M2"}]
+    },
+    "transform": [{"filter": "datum.type_ === 'E5M2'"}],
+    "mark": "point",
+    "encoding": {
+      "x": {"field": "value", "type": "quantitative", "title": "datum.type_"},
+      "color": {"field": "origin"}
+    }
+  }
+}

@@ -1,0 +1,20 @@
+(library
+  (name qtorch)
+  (foreign_stubs (language c) (names qtorch_stubs) (flags :standard -lstdc++ (:include c_library_flags.sexp)))
+  (foreign_stubs (language cxx) (names qtorch_api) (flags -std=c++14 -fPIC (:include cxx_flags.sexp)))
+  (libraries ctypes ctypes.foreign ctypes.stubs torch))
+
+(rule
+  (targets cxx_flags.sexp c_library_flags.sexp)
+  (deps    (:discover ../config/discover.exe))
+  (action  (run %{discover})))
+
+(rule
+  (targets qtorch_bindings.ml)
+  (deps    ../stubs/qtorch_bindings.ml)
+  (action  (copy ../stubs/qtorch_bindings.ml qtorch_bindings.ml)))
+
+(rule
+  (targets qtorch_stubs.c qtorch_generated.ml)
+  (deps (:qtorch_gen ../stubs/qtorch_gen.exe))
+  (action (run %{qtorch_gen})))

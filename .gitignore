@@ -1,2 +1,4 @@
 _build/
 weights/
+**/build/*
+**/.cache/*
